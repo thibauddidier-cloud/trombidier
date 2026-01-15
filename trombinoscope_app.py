@@ -154,6 +154,93 @@ class TrombinoscopeApp:
             pady=5
         )
         close_btn.pack()
+    
+    def show_missing_photos_alert(self, missing_count):
+        """Afficher une alerte pour les photos manquantes (21ko)"""
+        # Créer une fenêtre popup
+        popup = tk.Toplevel(self.root)
+        popup.title("⚠️ Photos manquantes détectées")
+        popup.geometry("600x450")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Frame principale
+        main_frame = tk.Frame(popup, bg="white", padx=25, pady=25)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="⚠️ Attention : Photos manquantes détectées",
+            font=("Arial", 14, "bold"),
+            bg="white",
+            fg="#dc2626"
+        )
+        title_label.pack(pady=(0, 15))
+        
+        # Image portrait "inconnu"
+        try:
+            portrait_path = os.path.join(os.path.dirname(__file__), "assets", "portrait.png")
+            if os.path.exists(portrait_path):
+                portrait_img = Image.open(portrait_path)
+                portrait_img = portrait_img.resize((100, 100), Image.Resampling.LANCZOS)
+                self.portrait_photo = ImageTk.PhotoImage(portrait_img)
+                
+                portrait_label = tk.Label(
+                    main_frame,
+                    image=self.portrait_photo,
+                    bg="white"
+                )
+                portrait_label.pack(pady=10)
+        except Exception as e:
+            print(f"Erreur chargement portrait: {e}")
+        
+        # Message principal
+        message_text = (
+            f"{missing_count} élève{'s' if missing_count > 1 else ''} sans photo {'ont' if missing_count > 1 else 'a'} été détecté{'s' if missing_count > 1 else ''}.\n\n"
+            "Ces élèves ont une photo portrait \"inconnu\" pesant précisément 21 ko.\n\n"
+            "Pour obtenir un meilleur trombinoscope, il est préférable de récupérer\n"
+            "ces photos depuis une extraction Pronote si possible."
+        )
+        
+        msg_label = tk.Label(
+            main_frame,
+            text=message_text,
+            font=("Arial", 11),
+            bg="white",
+            wraplength=550,
+            justify=tk.CENTER
+        )
+        msg_label.pack(pady=20)
+        
+        # Info supplémentaire
+        info_label = tk.Label(
+            main_frame,
+            text="Ce message est purement informatif.",
+            font=("Arial", 9, "italic"),
+            bg="white",
+            fg="#6b7280"
+        )
+        info_label.pack(pady=(10, 20))
+        
+        # Bouton "Rien à foutre, poursuivre quand même"
+        continue_btn = tk.Button(
+            main_frame,
+            text="Rien à foutre, poursuivre quand même",
+            command=popup.destroy,
+            bg=self.color_green,
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=30,
+            pady=10
+        )
+        continue_btn.pack()
         
     def setup_ui(self):
         """Configuration de l'interface utilisateur"""
@@ -500,6 +587,7 @@ class TrombinoscopeApp:
             subdirs.sort(key=self.sort_class_name)
             
             total_students = 0
+            missing_photos_count = 0  # Compteur pour les photos manquantes (21ko)
             
             for class_name in subdirs:
                 class_path = os.path.join(folder_path, class_name)
@@ -508,11 +596,18 @@ class TrombinoscopeApp:
                 students = []
                 for file in os.listdir(class_path):
                     if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        file_path = os.path.join(class_path, file)
+                        # Vérifier la taille du fichier pour détecter les photos "inconnu" d'environ 21ko
+                        file_size = os.path.getsize(file_path)
+                        # Tolérance de ±500 bytes autour de 21ko pour détecter les photos "inconnu"
+                        if 21000 <= file_size <= 22000:  # Entre 20.5ko et 21.5ko
+                            missing_photos_count += 1
+                        
                         # Extraction du nom (NOM-Prenom)
                         name = os.path.splitext(file)[0]
                         students.append({
                             'name': name,
-                            'file_path': os.path.join(class_path, file)
+                            'file_path': file_path
                         })
                 
                 # Tri alphabétique des élèves
@@ -554,6 +649,10 @@ class TrombinoscopeApp:
             self.preview_text.tag_config("summary", foreground=self.color_green, font=("Courier", 9, "bold"))
             
             self.update_status(f"Analyse terminée : {len(self.classes_data)} classes trouvées")
+            
+            # Afficher l'alerte si des photos manquantes ont été détectées
+            if missing_photos_count > 0:
+                self.show_missing_photos_alert(missing_photos_count)
             
         except Exception as e:
             messagebox.showerror("Erreur", f"Erreur lors de l'analyse :\n{str(e)}")
@@ -623,12 +722,12 @@ class TrombinoscopeApp:
         """Création du document Word"""
         doc = Document()
         
-        # Configuration de la page en paysage avec marges TRÈS réduites
+        # Configuration de la page en paysage avec marges de 1.5cm en haut et bas
         for section in doc.sections:
             section.page_width = Inches(11.69)  # A4 paysage
             section.page_height = Inches(8.27)
-            section.top_margin = Cm(0.5)  # Marges minimales
-            section.bottom_margin = Cm(0.5)
+            section.top_margin = Cm(1.5)  # Marges de 1.5cm en haut
+            section.bottom_margin = Cm(1.5)  # Marges de 1.5cm en bas
             section.left_margin = Cm(0.7)
             section.right_margin = Cm(0.7)
         
@@ -661,6 +760,14 @@ class TrombinoscopeApp:
                 # Charger le document de couverture existant
                 cover_doc = Document(docx_path)
                 
+                # Copier les relations d'images d'abord pour préserver les images
+                # On doit copier les images et leurs relations avant de copier les éléments
+                for rel_id, rel in cover_doc.part.rels.items():
+                    if "image" in rel.target_ref.lower():
+                        # Copier l'image dans le nouveau document
+                        image_part = rel.target_part
+                        new_rel = doc.part.relate_to(image_part, rel.reltype)
+                
                 # Copier tous les éléments du document de couverture
                 for element in cover_doc.element.body:
                     doc.element.body.append(element)
@@ -674,6 +781,8 @@ class TrombinoscopeApp:
                         # Aussi vérifier d'autres formats possibles
                         if "2024/2025" in run.text:
                             run.text = run.text.replace("2024/2025", self.school_year.get())
+                        if "2021-2022" in run.text:
+                            run.text = run.text.replace("2021-2022", self.school_year.get())
                 
             else:
                 # Si le fichier DOCX n'existe pas, utiliser la page de couverture par défaut
@@ -728,7 +837,7 @@ class TrombinoscopeApp:
         run.font.size = Pt(18)
     
     def add_class_page(self, doc, class_name, students):
-        """Ajout d'une page de classe avec disposition 5 rangées × 10 colonnes"""
+        """Ajout d'une page de classe avec disposition 5 rangées × 9 colonnes (optimisé pour 40 élèves, max 45)"""
         
         # En-tête de la page avec le nom de la classe - ESPACEMENT MINIMAL
         class_header = doc.add_paragraph()
@@ -741,12 +850,12 @@ class TrombinoscopeApp:
         run.font.bold = True
         run.font.color.rgb = RGBColor(30, 58, 138)
         
-        # Configuration de la grille: 5 rangées × 10 colonnes = 50 élèves max
+        # Configuration de la grille: 5 rangées × 9 colonnes = 45 élèves max (optimisé pour 40)
         rows = 5
-        cols = 10
+        cols = 9
         
-        # Taille des photos optimisée pour 10 colonnes
-        photo_width = Cm(1.6)  # Réduit à 1.6cm pour permettre 10 colonnes
+        # Taille des photos optimisée pour 9 colonnes avec photos plus grandes
+        photo_width = Cm(1.9)  # Augmenté à 1.9cm pour des photos plus grandes
         
         # Création du tableau avec toutes les lignes
         table = doc.add_table(rows=rows, cols=cols)
@@ -761,7 +870,7 @@ class TrombinoscopeApp:
                 tcMar = OxmlElement('w:tcMar')
                 for margin_name in ['top', 'left', 'bottom', 'right']:
                     node = OxmlElement(f'w:{margin_name}')
-                    node.set(qn('w:w'), '20')  # Marges minimales réduites à 20 pour 10 colonnes
+                    node.set(qn('w:w'), '30')  # Marges augmentées à 30 pour 9 colonnes avec photos plus grandes
                     node.set(qn('w:type'), 'dxa')
                     tcMar.append(node)
                 tcPr.append(tcMar)
@@ -803,7 +912,7 @@ class TrombinoscopeApp:
                         name_para.paragraph_format.space_after = Pt(0)
                         
                         run = name_para.add_run(display_name)
-                        run.font.size = Pt(6)  # Réduit à 6pt
+                        run.font.size = Pt(7)  # Augmenté à 7pt pour meilleure lisibilité avec photos plus grandes
                         run.font.bold = True
                         
                     except Exception as e:
@@ -811,9 +920,9 @@ class TrombinoscopeApp:
                         paragraph = cell.paragraphs[0]
                         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                         run = paragraph.add_run(f"[Photo manquante]\n{student['name']}")
-                        run.font.size = Pt(6)
+                        run.font.size = Pt(7)
         
-        # Si la classe a plus de 50 élèves, afficher un avertissement
+        # Si la classe a plus de 45 élèves, afficher un avertissement
         if len(students) > rows * cols:
             doc.add_paragraph()
             warning = doc.add_paragraph()
