@@ -720,9 +720,28 @@ class TrombinoscopeApp:
     
     def create_word_document(self, output_file):
         """Création du document Word"""
-        doc = Document()
+        # Charger le document template comme base (pour conserver l'image de couverture)
+        docx_path = os.path.join(os.path.dirname(__file__), "assets", "001 TROMBI COUV RECTO .docx")
+        
+        if os.path.exists(docx_path):
+            # Utiliser le template comme base du document
+            doc = Document(docx_path)
+            self.update_progress(0, len(self.classes_data) + 1, "Chargement de la page de couverture")
+            
+            # Remplacer l'année scolaire dans la couverture
+            for paragraph in doc.paragraphs:
+                for run in paragraph.runs:
+                    # Remplacer différents formats d'année possibles
+                    for old_year in ["2024-2025", "2024/2025", "2021-2022", "2020-2030"]:
+                        if old_year in run.text:
+                            run.text = run.text.replace(old_year, self.school_year.get())
+        else:
+            # Si le template n'existe pas, créer un document vide et ajouter une couverture par défaut
+            doc = Document()
+            self.add_cover_page(doc)
         
         # Configuration de la page en paysage avec marges de 1.5cm en haut et bas
+        # Appliquer APRÈS le chargement du template pour ne pas écraser la première section
         for section in doc.sections:
             section.page_width = Inches(11.69)  # A4 paysage
             section.page_height = Inches(8.27)
@@ -732,12 +751,7 @@ class TrombinoscopeApp:
             section.right_margin = Cm(0.7)
         
         total_steps = len(self.classes_data) + 1
-        current_step = 0
-        
-        # Page de couverture depuis le fichier ODT
-        self.update_progress(current_step, total_steps, "Ajout de la page de couverture")
-        self.add_cover_page_from_odt(doc)
-        current_step += 1
+        current_step = 1
         
         # Pages des classes
         for idx, (class_name, students) in enumerate(self.classes_data.items()):
@@ -749,52 +763,6 @@ class TrombinoscopeApp:
         # Sauvegarde
         self.update_progress(total_steps, total_steps, "Sauvegarde du document")
         doc.save(output_file)
-    
-    def add_cover_page_from_odt(self, doc):
-        """Ajout de la page de couverture depuis le fichier DOCX"""
-        try:
-            # Chemin vers le fichier DOCX (avec espaces dans le nom)
-            docx_path = os.path.join(os.path.dirname(__file__), "assets", "001 TROMBI COUV RECTO .docx")
-            
-            if os.path.exists(docx_path):
-                # Charger le document de couverture existant
-                cover_doc = Document(docx_path)
-                
-                # Copier les relations d'images d'abord pour préserver les images
-                # On doit copier les images et leurs relations avant de copier les éléments
-                for rel_id, rel in cover_doc.part.rels.items():
-                    if "image" in rel.target_ref.lower():
-                        # Copier l'image dans le nouveau document
-                        image_part = rel.target_part
-                        new_rel = doc.part.relate_to(image_part, rel.reltype)
-                
-                # Copier tous les éléments du document de couverture
-                for element in cover_doc.element.body:
-                    doc.element.body.append(element)
-                
-                # Remplacer l'année scolaire si elle apparaît dans le texte
-                # Parcourir tous les paragraphes et remplacer "2024-2025" par l'année actuelle
-                for paragraph in doc.paragraphs:
-                    for run in paragraph.runs:
-                        if "2024-2025" in run.text:
-                            run.text = run.text.replace("2024-2025", self.school_year.get())
-                        # Aussi vérifier d'autres formats possibles
-                        if "2024/2025" in run.text:
-                            run.text = run.text.replace("2024/2025", self.school_year.get())
-                        if "2021-2022" in run.text:
-                            run.text = run.text.replace("2021-2022", self.school_year.get())
-                
-            else:
-                # Si le fichier DOCX n'existe pas, utiliser la page de couverture par défaut
-                print(f"Fichier de couverture non trouvé : {docx_path}")
-                self.add_cover_page(doc)
-                
-        except Exception as e:
-            print(f"Erreur lors de l'ajout de la couverture DOCX: {e}")
-            import traceback
-            traceback.print_exc()
-            # Fallback vers la page de couverture par défaut
-            self.add_cover_page(doc)
     
     def add_cover_page(self, doc):
         """Ajout de la page de couverture par défaut"""
