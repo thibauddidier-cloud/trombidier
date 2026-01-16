@@ -50,6 +50,7 @@ class TrombinoscopeApp:
             "Spéciale dédicace à Karen qui anime la vie lycéenne !",
             "Marc Andral est un CONNARD :-) . Pardon, un GROS CONNARD !"
         ]
+        self.easter_message_index = 0  # Index pour messages séquentiels
         
         # Messages de chargement aléatoires
         self.loading_messages = [
@@ -144,9 +145,14 @@ class TrombinoscopeApp:
         return f'#{r:02x}{g:02x}{b:02x}'
         
     def create_menu(self):
-        """Création du menu avec l'onglet À propos"""
+        """Création du menu avec l'onglet À propos et Aide"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
+        
+        # Menu Aide
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Aide", menu=help_menu)
+        help_menu.add_command(label="Guide d'utilisation", command=self.show_help)
         
         # Menu À propos
         about_menu = tk.Menu(menubar, tearoff=0)
@@ -161,10 +167,98 @@ class TrombinoscopeApp:
             "pour aider les prochains AED TICE esclavagisés\n"
             "par ces tâches ingrates."
         )
+    
+    def show_help(self):
+        """Afficher le guide d'aide depuis README_TROMBINOSCOPE.md"""
+        readme_path = os.path.join(os.path.dirname(__file__), "README_TROMBINOSCOPE.md")
+        
+        # Créer une fenêtre popup
+        popup = tk.Toplevel(self.root)
+        popup.title("📚 Guide d'utilisation - Trombinoscope")
+        popup.geometry("900x700")
+        popup.configure(bg="white")
+        
+        # Centrer la fenêtre
+        popup.transient(self.root)
+        
+        # Frame principale
+        main_frame = tk.Frame(popup, bg="white", padx=20, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="📚 Guide d'utilisation",
+            font=("Arial", 16, "bold"),
+            bg="white",
+            fg=self.color_blue
+        )
+        title_label.pack(pady=(0, 15))
+        
+        # Zone de texte avec défilement pour afficher le README
+        text_frame = tk.Frame(main_frame, bg="white")
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        help_text = scrolledtext.ScrolledText(
+            text_frame,
+            font=("Courier", 9),
+            wrap=tk.WORD,
+            bg="#f8fafc",
+            relief=tk.FLAT,
+            padx=10,
+            pady=10
+        )
+        help_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Charger et afficher le contenu du README
+        try:
+            if os.path.exists(readme_path):
+                with open(readme_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    help_text.insert(tk.END, content)
+            else:
+                help_text.insert(tk.END, "⚠️ Fichier README_TROMBINOSCOPE.md introuvable.\n\n")
+                help_text.insert(tk.END, "Le guide d'utilisation devrait se trouver dans le dossier de l'application.")
+        except Exception as e:
+            help_text.insert(tk.END, f"❌ Erreur lors du chargement du guide :\n{str(e)}")
+        
+        help_text.config(state=tk.DISABLED)
+        
+        # Bouton Fermer
+        close_container = tk.Frame(main_frame, bg="white")
+        close_container.pack(pady=(15, 0))
+        
+        close_btn = tk.Button(
+            close_container,
+            text="Fermer",
+            command=popup.destroy,
+            bg=self.color_green,
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=30,
+            pady=10,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
+        )
+        close_btn.pack()
+        
+        def close_on_enter(e):
+            close_btn.config(bg="#047857")
+        def close_on_leave(e):
+            close_btn.config(bg=self.color_green)
+        close_btn.bind("<Enter>", close_on_enter)
+        close_btn.bind("<Leave>", close_on_leave)
         
     def show_easter_egg(self):
-        """Afficher un message Easter Egg aléatoire"""
-        message = random.choice(self.easter_messages)
+        """Afficher un message Easter Egg séquentiel"""
+        # Utiliser l'index actuel au lieu de random
+        message = self.easter_messages[self.easter_message_index]
+        
+        # Incrémenter l'index pour le prochain clic (avec boucle)
+        self.easter_message_index = (self.easter_message_index + 1) % len(self.easter_messages)
         
         # Créer une fenêtre popup
         popup = tk.Toplevel(self.root)
@@ -1040,19 +1134,56 @@ class TrombinoscopeApp:
         generate_btn.bind("<Enter>", generate_on_enter)
         generate_btn.bind("<Leave>", generate_on_leave)
         
+        # GIF Psyduck à côté du bouton (initialement visible)
+        psyduck_gif_container = tk.Frame(action_frame, bg=self.color_bg)
+        psyduck_gif_container.pack(side=tk.LEFT, padx=(20, 0))
+        
+        self.psyduck_gif_label = tk.Label(psyduck_gif_container, bg=self.color_bg)
+        self.psyduck_gif_label.pack()
+        
+        # Charger le GIF animé
+        try:
+            self.psyduck_gif_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck_loading.gif")
+            if os.path.exists(self.psyduck_gif_path):
+                self.psyduck_gif = Image.open(self.psyduck_gif_path)
+                self.psyduck_gif_frames = []
+                try:
+                    while True:
+                        frame = self.psyduck_gif.copy()
+                        frame = frame.resize((80, 80), Image.Resampling.LANCZOS)
+                        self.psyduck_gif_frames.append(ImageTk.PhotoImage(frame))
+                        self.psyduck_gif.seek(self.psyduck_gif.tell() + 1)
+                except EOFError:
+                    pass  # Fin du GIF
+                self.psyduck_gif_index = 0
+                # Afficher le premier frame du GIF
+                if len(self.psyduck_gif_frames) > 0:
+                    self.psyduck_gif_label.config(image=self.psyduck_gif_frames[0])
+                    # Démarrer l'animation
+                    self.animate_psyduck_gif()
+        except Exception as e:
+            print(f"Erreur chargement GIF Psyduck: {e}")
+    
+    def animate_psyduck_gif(self):
+        """Animer le GIF Psyduck en continu"""
+        if hasattr(self, 'psyduck_gif_frames') and len(self.psyduck_gif_frames) > 0:
+            # Vérifier si le label existe toujours et est visible
+            if self.psyduck_gif_label.winfo_exists():
+                self.psyduck_gif_index = (self.psyduck_gif_index + 1) % len(self.psyduck_gif_frames)
+                self.psyduck_gif_label.config(image=self.psyduck_gif_frames[self.psyduck_gif_index])
+                # Répéter l'animation toutes les 100ms
+                self.root.after(100, self.animate_psyduck_gif)
+
+        
         # Barre de progression (initialement cachée)
         self.progress_frame = tk.Frame(main_frame, bg=self.color_bg)
         
-        # Container horizontal pour le texte et le GIF
+        # Container horizontal pour le texte et la barre
         progress_content = tk.Frame(self.progress_frame, bg=self.color_bg)
         progress_content.pack(pady=(10, 5))
         
-        # Frame gauche pour le texte et la barre
-        left_frame = tk.Frame(progress_content, bg=self.color_bg)
-        left_frame.pack(side=tk.LEFT, padx=(0, 20))
-        
         self.progress_label = tk.Label(
-            left_frame,
+            progress_content,
             text="",
             font=("Arial", 10, "bold"),
             bg=self.color_bg,
@@ -1072,34 +1203,12 @@ class TrombinoscopeApp:
         )
         
         self.progress_bar = ttk.Progressbar(
-            left_frame,
+            progress_content,
             length=450,
             mode='determinate',
             style="Modern.Horizontal.TProgressbar"
         )
         self.progress_bar.pack()
-        
-        # Frame droite pour le GIF Psyduck
-        self.psyduck_gif_label = tk.Label(progress_content, bg=self.color_bg)
-        self.psyduck_gif_label.pack(side=tk.LEFT, padx=(20, 0))
-        
-        # Charger le GIF animé
-        try:
-            self.psyduck_gif_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck_loading.gif")
-            if os.path.exists(self.psyduck_gif_path):
-                self.psyduck_gif = Image.open(self.psyduck_gif_path)
-                self.psyduck_gif_frames = []
-                try:
-                    while True:
-                        frame = self.psyduck_gif.copy()
-                        frame = frame.resize((80, 80), Image.Resampling.LANCZOS)
-                        self.psyduck_gif_frames.append(ImageTk.PhotoImage(frame))
-                        self.psyduck_gif.seek(self.psyduck_gif.tell() + 1)
-                except EOFError:
-                    pass  # Fin du GIF
-                self.psyduck_gif_index = 0
-        except Exception as e:
-            print(f"Erreur chargement GIF Psyduck: {e}")
         
         # Barre de statut
         self.status_label = tk.Label(
@@ -1126,7 +1235,7 @@ class TrombinoscopeApp:
         self.root.update_idletasks()
         
     def update_progress(self, current, total, message=""):
-        """Mise à jour de la barre de progression avec message aléatoire et GIF animé"""
+        """Mise à jour de la barre de progression avec message aléatoire"""
         if total > 0:
             progress_percent = (current / total) * 100
             self.progress_bar['value'] = progress_percent
@@ -1137,11 +1246,6 @@ class TrombinoscopeApp:
             # Afficher le message de progression avec le message aléatoire
             display_text = f"{message} ({current}/{total})\n💡 {random_msg}"
             self.progress_label.config(text=display_text)
-            
-            # Animer le GIF Psyduck
-            if hasattr(self, 'psyduck_gif_frames') and len(self.psyduck_gif_frames) > 0:
-                self.psyduck_gif_index = (self.psyduck_gif_index + 1) % len(self.psyduck_gif_frames)
-                self.psyduck_gif_label.config(image=self.psyduck_gif_frames[self.psyduck_gif_index])
             
             self.root.update_idletasks()
         
@@ -1297,6 +1401,10 @@ class TrombinoscopeApp:
             )
             return
         
+        # Cacher le GIF Psyduck lors du clic
+        if hasattr(self, 'psyduck_gif_label'):
+            self.psyduck_gif_label.pack_forget()
+        
         # Demander où enregistrer le fichier
         output_format = self.output_format.get()
         file_extension = ".docx" if output_format == "word" else ".pdf"
@@ -1309,6 +1417,9 @@ class TrombinoscopeApp:
         )
         
         if not output_file:
+            # Réafficher le GIF si l'utilisateur annule
+            if hasattr(self, 'psyduck_gif_label'):
+                self.psyduck_gif_label.pack()
             return
         
         # Afficher la barre de progression
@@ -1331,6 +1442,10 @@ class TrombinoscopeApp:
             # Cacher la barre de progression
             self.progress_frame.pack_forget()
             
+            # Réafficher le GIF après la génération
+            if hasattr(self, 'psyduck_gif_label'):
+                self.psyduck_gif_label.pack()
+            
             self.update_status(f"✅ Trombinoscope généré avec succès : {output_file}")
             messagebox.showinfo(
                 "Succès",
@@ -1343,6 +1458,9 @@ class TrombinoscopeApp:
                 
         except Exception as e:
             self.progress_frame.pack_forget()
+            # Réafficher le GIF en cas d'erreur
+            if hasattr(self, 'psyduck_gif_label'):
+                self.psyduck_gif_label.pack()
             messagebox.showerror("Erreur", f"Erreur lors de la génération :\n{str(e)}")
             self.update_status("Erreur lors de la génération")
             import traceback
@@ -1386,7 +1504,10 @@ class TrombinoscopeApp:
         # Pages des classes
         for idx, (class_name, students) in enumerate(self.classes_data.items()):
             self.update_progress(current_step, total_steps, f"Génération de la classe {class_name}")
-            doc.add_page_break()
+            # Ne pas ajouter de page_break pour la première classe (idx == 0)
+            # pour éviter une page blanche après la couverture
+            if idx > 0:
+                doc.add_page_break()
             self.add_class_page(doc, class_name, students)
             current_step += 1
         
