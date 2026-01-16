@@ -90,6 +90,58 @@ class TrombinoscopeApp:
         
         self.setup_ui()
         self.create_menu()
+    
+    def create_modern_button(self, parent, text, command, bg_color, width=None):
+        """Créer un bouton moderne avec coins arrondis et style amélioré"""
+        # Frame pour simuler les coins arrondis avec un effet d'ombre
+        button_container = tk.Frame(parent, bg=parent.cget('bg'))
+        
+        button = tk.Button(
+            button_container,
+            text=text,
+            command=command,
+            bg=bg_color,
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=25,
+            pady=12,
+            activebackground=self.get_darker_color(bg_color),
+            activeforeground="white",
+            borderwidth=0,
+            highlightthickness=0
+        )
+        
+        if width:
+            button.config(width=width)
+        
+        button.pack()
+        
+        # Effets hover
+        def on_enter(e):
+            button.config(bg=self.get_darker_color(bg_color))
+        
+        def on_leave(e):
+            button.config(bg=bg_color)
+        
+        button.bind("<Enter>", on_enter)
+        button.bind("<Leave>", on_leave)
+        
+        return button_container
+    
+    def get_darker_color(self, hex_color):
+        """Obtenir une version plus foncée d'une couleur"""
+        # Supprimer le #
+        hex_color = hex_color.lstrip('#')
+        # Convertir en RGB
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        # Assombrir de 20%
+        r = max(0, int(r * 0.8))
+        g = max(0, int(g * 0.8))
+        b = max(0, int(b * 0.8))
+        # Reconvertir en hex
+        return f'#{r:02x}{g:02x}{b:02x}'
         
     def create_menu(self):
         """Création du menu avec l'onglet À propos"""
@@ -231,24 +283,41 @@ class TrombinoscopeApp:
         buttons_frame = tk.Frame(main_frame, bg="white")
         buttons_frame.pack(pady=5)
         
-        # Bouton "Réparer avec une extraction Pronote"
+        # Bouton "Réparer avec une extraction Pronote" - Style moderne
+        repair_container = tk.Frame(buttons_frame, bg="white")
+        repair_container.pack(side=tk.LEFT, padx=5)
+        
         repair_btn = tk.Button(
-            buttons_frame,
-            text="Réparer avec une extraction Pronote",
+            repair_container,
+            text="🔧 Réparer avec Pronote",
             command=lambda: [popup.destroy(), self.show_pronote_instructions()],
             bg=self.color_light_blue,
             fg="white",
             font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=10
+            padx=25,
+            pady=12,
+            activebackground="#2563eb",
+            borderwidth=0,
+            highlightthickness=0
         )
-        repair_btn.pack(side=tk.LEFT, padx=5)
+        repair_btn.pack()
         
-        # Bouton "Ignorer" (anciennement "Rien à foutre, poursuivre quand même")
+        # Effets hover pour repair_btn
+        def repair_on_enter(e):
+            repair_btn.config(bg="#2563eb")
+        def repair_on_leave(e):
+            repair_btn.config(bg=self.color_light_blue)
+        repair_btn.bind("<Enter>", repair_on_enter)
+        repair_btn.bind("<Leave>", repair_on_leave)
+        
+        # Bouton "Ignorer" - Style moderne
+        ignore_container = tk.Frame(buttons_frame, bg="white")
+        ignore_container.pack(side=tk.LEFT, padx=5)
+        
         ignore_btn = tk.Button(
-            buttons_frame,
+            ignore_container,
             text="Ignorer",
             command=popup.destroy,
             bg=self.color_green,
@@ -256,10 +325,21 @@ class TrombinoscopeApp:
             font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=30,
-            pady=10
+            padx=35,
+            pady=12,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
         )
-        ignore_btn.pack(side=tk.LEFT, padx=5)
+        ignore_btn.pack()
+        
+        # Effets hover pour ignore_btn
+        def ignore_on_enter(e):
+            ignore_btn.config(bg="#047857")
+        def ignore_on_leave(e):
+            ignore_btn.config(bg=self.color_green)
+        ignore_btn.bind("<Enter>", ignore_on_enter)
+        ignore_btn.bind("<Leave>", ignore_on_leave)
     
     def show_pronote_instructions(self):
         """Afficher les instructions pour exporter les photos depuis Pronote"""
@@ -367,35 +447,61 @@ class TrombinoscopeApp:
         buttons_frame = tk.Frame(main_frame, bg="white")
         buttons_frame.pack(pady=10)
         
-        # Bouton Annuler
+        # Bouton Annuler - Style moderne
+        cancel_container = tk.Frame(buttons_frame, bg="white")
+        cancel_container.pack(side=tk.LEFT, padx=5)
+        
         cancel_btn = tk.Button(
-            buttons_frame,
-            text="Annuler",
+            cancel_container,
+            text="❌ Annuler",
             command=popup.destroy,
             bg="#6b7280",
             fg="white",
-            font=("Arial", 10, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=8
+            padx=25,
+            pady=12,
+            activebackground="#4b5563",
+            borderwidth=0,
+            highlightthickness=0
         )
-        cancel_btn.pack(side=tk.LEFT, padx=5)
+        cancel_btn.pack()
         
-        # Bouton Continuer
+        def cancel_on_enter(e):
+            cancel_btn.config(bg="#4b5563")
+        def cancel_on_leave(e):
+            cancel_btn.config(bg="#6b7280")
+        cancel_btn.bind("<Enter>", cancel_on_enter)
+        cancel_btn.bind("<Leave>", cancel_on_leave)
+        
+        # Bouton Continuer - Style moderne
+        continue_container = tk.Frame(buttons_frame, bg="white")
+        continue_container.pack(side=tk.LEFT, padx=5)
+        
         continue_btn = tk.Button(
-            buttons_frame,
-            text="Continuer",
+            continue_container,
+            text="✅ Continuer",
             command=lambda: [popup.destroy(), self.repair_with_pronote()],
             bg=self.color_green,
             fg="white",
-            font=("Arial", 10, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=8
+            padx=25,
+            pady=12,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
         )
-        continue_btn.pack(side=tk.LEFT, padx=5)
+        continue_btn.pack()
+        
+        def continue_on_enter(e):
+            continue_btn.config(bg="#047857")
+        def continue_on_leave(e):
+            continue_btn.config(bg=self.color_green)
+        continue_btn.bind("<Enter>", continue_on_enter)
+        continue_btn.bind("<Leave>", continue_on_leave)
     
     def repair_with_pronote(self):
         """Réparer les photos manquantes avec les photos Pronote"""
@@ -594,35 +700,61 @@ class TrombinoscopeApp:
         buttons_frame = tk.Frame(main_frame, bg="white")
         buttons_frame.pack(pady=10)
         
-        # Bouton Annuler (ferme juste la fenêtre)
+        # Bouton Fermer - Style moderne
+        close_container = tk.Frame(buttons_frame, bg="white")
+        close_container.pack(side=tk.LEFT, padx=5)
+        
         cancel_btn = tk.Button(
-            buttons_frame,
-            text="Fermer",
+            close_container,
+            text="✖ Fermer",
             command=popup.destroy,
             bg="#6b7280",
             fg="white",
-            font=("Arial", 10, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=8
+            padx=25,
+            pady=12,
+            activebackground="#4b5563",
+            borderwidth=0,
+            highlightthickness=0
         )
-        cancel_btn.pack(side=tk.LEFT, padx=5)
+        cancel_btn.pack()
         
-        # Bouton Générer le trombinoscope
+        def close_on_enter(e):
+            cancel_btn.config(bg="#4b5563")
+        def close_on_leave(e):
+            cancel_btn.config(bg="#6b7280")
+        cancel_btn.bind("<Enter>", close_on_enter)
+        cancel_btn.bind("<Leave>", close_on_leave)
+        
+        # Bouton Générer - Style moderne
+        generate_container = tk.Frame(buttons_frame, bg="white")
+        generate_container.pack(side=tk.LEFT, padx=5)
+        
         generate_btn = tk.Button(
-            buttons_frame,
-            text="Générer le trombinoscope",
+            generate_container,
+            text="✨ Générer le trombinoscope",
             command=lambda: [popup.destroy(), self.generate_trombinoscope()],
             bg=self.color_green,
             fg="white",
-            font=("Arial", 10, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=8
+            padx=25,
+            pady=12,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
         )
-        generate_btn.pack(side=tk.LEFT, padx=5)
+        generate_btn.pack()
+        
+        def generate_on_enter(e):
+            generate_btn.config(bg="#047857")
+        def generate_on_leave(e):
+            generate_btn.config(bg=self.color_green)
+        generate_btn.bind("<Enter>", generate_on_enter)
+        generate_btn.bind("<Leave>", generate_on_leave)
         
         self.update_status(f"Réparation terminée : {replaced_count} photo(s) remplacée(s)")
         
@@ -691,11 +823,15 @@ class TrombinoscopeApp:
         config_frame = tk.LabelFrame(
             main_frame,
             text="📁 Configuration",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 13, "bold"),
             bg="white",
             fg=self.color_blue,
-            padx=15,
-            pady=15
+            padx=20,
+            pady=20,
+            relief=tk.FLAT,
+            borderwidth=2,
+            highlightthickness=1,
+            highlightbackground="#e5e7eb"
         )
         config_frame.pack(fill=tk.X, pady=(0, 15))
         
@@ -715,20 +851,40 @@ class TrombinoscopeApp:
             path_frame,
             textvariable=self.classe_jpg_path,
             font=("Arial", 10),
-            width=50
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+            width=50,
+            relief=tk.FLAT,
+            bg="#f8fafc",
+            fg="#1e293b",
+            insertbackground="#3b82f6"
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=6)
         
-        tk.Button(
-            path_frame,
-            text="Parcourir",
+        # Bouton Parcourir moderne
+        browse_container = tk.Frame(path_frame, bg="white")
+        browse_container.pack(side=tk.LEFT, padx=(10, 0))
+        
+        browse_btn = tk.Button(
+            browse_container,
+            text="📁 Parcourir",
             command=self.select_folder,
             bg=self.color_green,
             fg="white",
-            font=("Arial", 9, "bold"),
+            font=("Arial", 10, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=15
-        ).pack(side=tk.LEFT, padx=(10, 0))
+            padx=18,
+            pady=8,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
+        )
+        browse_btn.pack()
+        
+        def browse_on_enter(e):
+            browse_btn.config(bg="#047857")
+        def browse_on_leave(e):
+            browse_btn.config(bg=self.color_green)
+        browse_btn.bind("<Enter>", browse_on_enter)
+        browse_btn.bind("<Leave>", browse_on_leave)
         
         # Nom de l'établissement
         tk.Label(
@@ -742,8 +898,12 @@ class TrombinoscopeApp:
             config_frame,
             textvariable=self.school_name,
             font=("Arial", 10),
-            width=50
-        ).grid(row=1, column=1, sticky="w", padx=10)
+            width=50,
+            relief=tk.FLAT,
+            bg="#f8fafc",
+            fg="#1e293b",
+            insertbackground="#3b82f6"
+        ).grid(row=1, column=1, sticky="w", padx=10, ipady=6)
         
         # Année scolaire
         tk.Label(
@@ -757,8 +917,12 @@ class TrombinoscopeApp:
             config_frame,
             textvariable=self.school_year,
             font=("Arial", 10),
-            width=50
-        ).grid(row=2, column=1, sticky="w", padx=10)
+            width=50,
+            relief=tk.FLAT,
+            bg="#f8fafc",
+            fg="#1e293b",
+            insertbackground="#3b82f6"
+        ).grid(row=2, column=1, sticky="w", padx=10, ipady=6)
         
         # Format de sortie
         tk.Label(
@@ -793,11 +957,15 @@ class TrombinoscopeApp:
         preview_frame = tk.LabelFrame(
             main_frame,
             text="📋 Aperçu des classes",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 13, "bold"),
             bg="white",
             fg=self.color_blue,
-            padx=15,
-            pady=15
+            padx=20,
+            pady=20,
+            relief=tk.FLAT,
+            borderwidth=2,
+            highlightthickness=1,
+            highlightbackground="#e5e7eb"
         )
         preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
         
@@ -816,50 +984,122 @@ class TrombinoscopeApp:
         action_frame = tk.Frame(main_frame, bg=self.color_bg)
         action_frame.pack(fill=tk.X)
         
-        # Bouton Analyser
-        tk.Button(
-            action_frame,
+        # Bouton Analyser - Style moderne
+        analyze_container = tk.Frame(action_frame, bg=self.color_bg)
+        analyze_container.pack(side=tk.LEFT, padx=(0, 10))
+        
+        analyze_btn = tk.Button(
+            analyze_container,
             text="🔍 Analyser les classes",
             command=self.analyze_classes,
             bg=self.color_light_blue,
             fg="white",
-            font=("Arial", 11, "bold"),
+            font=("Arial", 12, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=10
-        ).pack(side=tk.LEFT, padx=(0, 10))
+            padx=30,
+            pady=15,
+            activebackground="#2563eb",
+            borderwidth=0,
+            highlightthickness=0
+        )
+        analyze_btn.pack()
         
-        # Bouton Générer
-        tk.Button(
-            action_frame,
+        def analyze_on_enter(e):
+            analyze_btn.config(bg="#2563eb")
+        def analyze_on_leave(e):
+            analyze_btn.config(bg=self.color_light_blue)
+        analyze_btn.bind("<Enter>", analyze_on_enter)
+        analyze_btn.bind("<Leave>", analyze_on_leave)
+        
+        # Bouton Générer - Style moderne
+        generate_container = tk.Frame(action_frame, bg=self.color_bg)
+        generate_container.pack(side=tk.LEFT)
+        
+        generate_btn = tk.Button(
+            generate_container,
             text="✨ Générer le Trombinoscope",
             command=self.generate_trombinoscope,
             bg=self.color_green,
             fg="white",
-            font=("Arial", 11, "bold"),
+            font=("Arial", 12, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=10
-        ).pack(side=tk.LEFT)
+            padx=30,
+            pady=15,
+            activebackground="#047857",
+            borderwidth=0,
+            highlightthickness=0
+        )
+        generate_btn.pack()
+        
+        def generate_on_enter(e):
+            generate_btn.config(bg="#047857")
+        def generate_on_leave(e):
+            generate_btn.config(bg=self.color_green)
+        generate_btn.bind("<Enter>", generate_on_enter)
+        generate_btn.bind("<Leave>", generate_on_leave)
         
         # Barre de progression (initialement cachée)
         self.progress_frame = tk.Frame(main_frame, bg=self.color_bg)
+        
+        # Container horizontal pour le texte et le GIF
+        progress_content = tk.Frame(self.progress_frame, bg=self.color_bg)
+        progress_content.pack(pady=(10, 5))
+        
+        # Frame gauche pour le texte et la barre
+        left_frame = tk.Frame(progress_content, bg=self.color_bg)
+        left_frame.pack(side=tk.LEFT, padx=(0, 20))
+        
         self.progress_label = tk.Label(
-            self.progress_frame,
+            left_frame,
             text="",
-            font=("Arial", 9),
-            bg=self.color_bg
+            font=("Arial", 10, "bold"),
+            bg=self.color_bg,
+            fg=self.color_blue
         )
-        self.progress_label.pack(pady=(10, 5))
+        self.progress_label.pack(pady=(0, 8))
+        
+        # Style moderne pour la barre de progression
+        style.configure(
+            "Modern.Horizontal.TProgressbar",
+            troughcolor='#e5e7eb',
+            background='#059669',
+            darkcolor='#047857',
+            lightcolor='#10b981',
+            bordercolor='#d1d5db',
+            thickness=20
+        )
         
         self.progress_bar = ttk.Progressbar(
-            self.progress_frame,
-            length=400,
-            mode='determinate'
+            left_frame,
+            length=450,
+            mode='determinate',
+            style="Modern.Horizontal.TProgressbar"
         )
         self.progress_bar.pack()
+        
+        # Frame droite pour le GIF Psyduck
+        self.psyduck_gif_label = tk.Label(progress_content, bg=self.color_bg)
+        self.psyduck_gif_label.pack(side=tk.LEFT, padx=(20, 0))
+        
+        # Charger le GIF animé
+        try:
+            self.psyduck_gif_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck_loading.gif")
+            if os.path.exists(self.psyduck_gif_path):
+                self.psyduck_gif = Image.open(self.psyduck_gif_path)
+                self.psyduck_gif_frames = []
+                try:
+                    while True:
+                        frame = self.psyduck_gif.copy()
+                        frame = frame.resize((80, 80), Image.Resampling.LANCZOS)
+                        self.psyduck_gif_frames.append(ImageTk.PhotoImage(frame))
+                        self.psyduck_gif.seek(self.psyduck_gif.tell() + 1)
+                except EOFError:
+                    pass  # Fin du GIF
+                self.psyduck_gif_index = 0
+        except Exception as e:
+            print(f"Erreur chargement GIF Psyduck: {e}")
         
         # Barre de statut
         self.status_label = tk.Label(
@@ -886,7 +1126,7 @@ class TrombinoscopeApp:
         self.root.update_idletasks()
         
     def update_progress(self, current, total, message=""):
-        """Mise à jour de la barre de progression avec message aléatoire"""
+        """Mise à jour de la barre de progression avec message aléatoire et GIF animé"""
         if total > 0:
             progress_percent = (current / total) * 100
             self.progress_bar['value'] = progress_percent
@@ -897,6 +1137,12 @@ class TrombinoscopeApp:
             # Afficher le message de progression avec le message aléatoire
             display_text = f"{message} ({current}/{total})\n💡 {random_msg}"
             self.progress_label.config(text=display_text)
+            
+            # Animer le GIF Psyduck
+            if hasattr(self, 'psyduck_gif_frames') and len(self.psyduck_gif_frames) > 0:
+                self.psyduck_gif_index = (self.psyduck_gif_index + 1) % len(self.psyduck_gif_frames)
+                self.psyduck_gif_label.config(image=self.psyduck_gif_frames[self.psyduck_gif_index])
+            
             self.root.update_idletasks()
         
     def sort_class_name(self, class_name):
