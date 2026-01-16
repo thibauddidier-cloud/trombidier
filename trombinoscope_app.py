@@ -160,7 +160,7 @@ class TrombinoscopeApp:
         # Créer une fenêtre popup
         popup = tk.Toplevel(self.root)
         popup.title("⚠️ Photos manquantes détectées")
-        popup.geometry("600x450")
+        popup.geometry("600x500")
         popup.configure(bg="white")
         popup.resizable(False, False)
         
@@ -227,10 +227,29 @@ class TrombinoscopeApp:
         )
         info_label.pack(pady=(10, 20))
         
-        # Bouton "Rien à foutre, poursuivre quand même"
-        continue_btn = tk.Button(
-            main_frame,
-            text="Rien à foutre, poursuivre quand même",
+        # Frame pour les boutons
+        buttons_frame = tk.Frame(main_frame, bg="white")
+        buttons_frame.pack(pady=5)
+        
+        # Bouton "Réparer avec une extraction Pronote"
+        repair_btn = tk.Button(
+            buttons_frame,
+            text="Réparer avec une extraction Pronote",
+            command=lambda: [popup.destroy(), self.show_pronote_instructions()],
+            bg=self.color_light_blue,
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=10
+        )
+        repair_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Bouton "Ignorer" (anciennement "Rien à foutre, poursuivre quand même")
+        ignore_btn = tk.Button(
+            buttons_frame,
+            text="Ignorer",
             command=popup.destroy,
             bg=self.color_green,
             fg="white",
@@ -240,7 +259,372 @@ class TrombinoscopeApp:
             padx=30,
             pady=10
         )
-        continue_btn.pack()
+        ignore_btn.pack(side=tk.LEFT, padx=5)
+    
+    def show_pronote_instructions(self):
+        """Afficher les instructions pour exporter les photos depuis Pronote"""
+        # Créer une fenêtre popup
+        popup = tk.Toplevel(self.root)
+        popup.title("📋 Instructions d'export Pronote")
+        popup.geometry("700x650")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Frame principale avec scrollbar
+        main_frame = tk.Frame(popup, bg="white")
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="📋 Comment exporter les photos depuis Pronote",
+            font=("Arial", 14, "bold"),
+            bg="white",
+            fg=self.color_blue
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # Instructions
+        instructions = [
+            "1. Ouvrez Pronote.",
+            "2. En haut, dans l'onglet \"Import-Export\", cliquez sur \"Exporter les photos des élèves\".",
+            "3. Choisissez ou créez un dossier d'emplacement vide.",
+            "4. Dans \"Syntaxe utilisée pour le nom des photos exportées\", choisir Nom-Prénom.",
+            "   ⚠️ Le tiret est très important !"
+        ]
+        
+        for instruction in instructions:
+            instr_label = tk.Label(
+                main_frame,
+                text=instruction,
+                font=("Arial", 10),
+                bg="white",
+                justify=tk.LEFT,
+                anchor="w"
+            )
+            instr_label.pack(fill=tk.X, pady=3)
+        
+        # Afficher l'image d'exemple
+        try:
+            pronote_img_path = os.path.join(os.path.dirname(__file__), "assets", "pronote_export.png")
+            if os.path.exists(pronote_img_path):
+                pronote_img = Image.open(pronote_img_path)
+                # Redimensionner l'image si nécessaire pour qu'elle tienne dans la fenêtre
+                max_width = 650
+                max_height = 300
+                img_width, img_height = pronote_img.size
+                
+                # Calculer le ratio pour maintenir les proportions
+                ratio = min(max_width / img_width, max_height / img_height)
+                new_width = int(img_width * ratio)
+                new_height = int(img_height * ratio)
+                
+                pronote_img = pronote_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                self.pronote_photo = ImageTk.PhotoImage(pronote_img)
+                
+                img_label = tk.Label(
+                    main_frame,
+                    image=self.pronote_photo,
+                    bg="white",
+                    relief=tk.SOLID,
+                    borderwidth=1
+                )
+                img_label.pack(pady=15)
+        except Exception as e:
+            print(f"Erreur chargement image pronote: {e}")
+        
+        # Dernière instruction
+        final_instr = tk.Label(
+            main_frame,
+            text="5. Lancez l'export.",
+            font=("Arial", 10),
+            bg="white",
+            justify=tk.LEFT,
+            anchor="w"
+        )
+        final_instr.pack(fill=tk.X, pady=3)
+        
+        # Séparateur
+        separator = tk.Frame(main_frame, height=2, bg="#e5e7eb")
+        separator.pack(fill=tk.X, pady=15)
+        
+        # Message d'information
+        info_msg = tk.Label(
+            main_frame,
+            text="Une fois l'export terminé, cliquez sur \"Continuer\" pour sélectionner\nle dossier contenant les photos exportées.",
+            font=("Arial", 9, "italic"),
+            bg="white",
+            fg="#6b7280",
+            justify=tk.CENTER
+        )
+        info_msg.pack(pady=10)
+        
+        # Frame pour les boutons
+        buttons_frame = tk.Frame(main_frame, bg="white")
+        buttons_frame.pack(pady=10)
+        
+        # Bouton Annuler
+        cancel_btn = tk.Button(
+            buttons_frame,
+            text="Annuler",
+            command=popup.destroy,
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Bouton Continuer
+        continue_btn = tk.Button(
+            buttons_frame,
+            text="Continuer",
+            command=lambda: [popup.destroy(), self.repair_with_pronote()],
+            bg=self.color_green,
+            fg="white",
+            font=("Arial", 10, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8
+        )
+        continue_btn.pack(side=tk.LEFT, padx=5)
+    
+    def repair_with_pronote(self):
+        """Réparer les photos manquantes avec les photos Pronote"""
+        # Demander le dossier Pronote
+        pronote_folder = filedialog.askdirectory(
+            title="Sélectionnez le dossier contenant les photos exportées de Pronote"
+        )
+        
+        if not pronote_folder:
+            return
+        
+        classe_jpg_path = self.classe_jpg_path.get()
+        
+        if not classe_jpg_path or not os.path.exists(classe_jpg_path):
+            messagebox.showerror("Erreur", "Le dossier CLASSE_JPG n'est pas valide.")
+            return
+        
+        self.update_status("Réparation des photos en cours...")
+        
+        # Statistiques
+        photos_replaced = 0
+        photos_still_missing = 0
+        missing_photos_details = []
+        
+        try:
+            # Créer un dictionnaire des photos Pronote (nom fichier -> chemin complet)
+            pronote_photos = {}
+            for file in os.listdir(pronote_folder):
+                if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    # Extraire le nom sans extension
+                    name = os.path.splitext(file)[0]
+                    file_path = os.path.join(pronote_folder, file)
+                    pronote_photos[name] = file_path
+            
+            # Parcourir les classes dans CLASSE_JPG
+            for class_name in os.listdir(classe_jpg_path):
+                class_path = os.path.join(classe_jpg_path, class_name)
+                
+                if not os.path.isdir(class_path):
+                    continue
+                
+                # Parcourir les photos de la classe
+                for file in os.listdir(class_path):
+                    if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+                        file_path = os.path.join(class_path, file)
+                        file_size = os.path.getsize(file_path)
+                        
+                        # Vérifier si c'est une photo "inconnu" de 21ko
+                        if 20500 <= file_size <= 21500:
+                            # Extraire le nom (NOM-Prenom)
+                            name = os.path.splitext(file)[0]
+                            
+                            # Chercher la photo correspondante dans le dossier Pronote
+                            if name in pronote_photos:
+                                pronote_photo_path = pronote_photos[name]
+                                
+                                # Vérifier que la photo Pronote n'est pas aussi une photo "inconnu"
+                                pronote_size = os.path.getsize(pronote_photo_path)
+                                if 20500 <= pronote_size <= 21500:
+                                    # La photo Pronote est aussi "inconnu"
+                                    photos_still_missing += 1
+                                    missing_photos_details.append({
+                                        'name': name,
+                                        'class': class_name,
+                                        'reason': 'Photo Pronote aussi "inconnu"'
+                                    })
+                                else:
+                                    # Remplacer la photo
+                                    shutil.copy2(pronote_photo_path, file_path)
+                                    photos_replaced += 1
+                            else:
+                                # Photo non trouvée dans le dossier Pronote
+                                photos_still_missing += 1
+                                missing_photos_details.append({
+                                    'name': name,
+                                    'class': class_name,
+                                    'reason': 'Non trouvé dans dossier Pronote'
+                                })
+            
+            # Afficher le récapitulatif
+            self.show_repair_summary(photos_replaced, photos_still_missing, missing_photos_details)
+            
+            # Re-analyser les classes pour mettre à jour l'aperçu
+            if photos_replaced > 0:
+                self.analyze_classes()
+            
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de la réparation :\n{str(e)}")
+            self.update_status("Erreur lors de la réparation")
+            import traceback
+            traceback.print_exc()
+    
+    def show_repair_summary(self, replaced_count, still_missing_count, missing_details):
+        """Afficher le récapitulatif de la réparation"""
+        # Créer une fenêtre popup
+        popup = tk.Toplevel(self.root)
+        popup.title("✅ Récapitulatif de la réparation")
+        popup.geometry("650x550")
+        popup.configure(bg="white")
+        popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Frame principale
+        main_frame = tk.Frame(popup, bg="white", padx=25, pady=25)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="✅ Récapitulatif de la réparation",
+            font=("Arial", 14, "bold"),
+            bg="white",
+            fg=self.color_blue
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # Statistiques
+        stats_frame = tk.Frame(main_frame, bg="#f0f9ff", relief=tk.FLAT, padx=20, pady=15)
+        stats_frame.pack(fill=tk.X, pady=10)
+        
+        # Photos remplacées
+        replaced_label = tk.Label(
+            stats_frame,
+            text=f"✅ Photos correctement remplacées : {replaced_count}",
+            font=("Arial", 11, "bold"),
+            bg="#f0f9ff",
+            fg=self.color_green
+        )
+        replaced_label.pack(anchor="w", pady=5)
+        
+        # Photos toujours manquantes
+        missing_label = tk.Label(
+            stats_frame,
+            text=f"⚠️ Photos toujours manquantes : {still_missing_count}",
+            font=("Arial", 11, "bold"),
+            bg="#f0f9ff",
+            fg="#dc2626" if still_missing_count > 0 else "#6b7280"
+        )
+        missing_label.pack(anchor="w", pady=5)
+        
+        # Détails des photos manquantes (si applicable)
+        if still_missing_count > 0 and missing_details:
+            details_label = tk.Label(
+                main_frame,
+                text="Détails des photos toujours manquantes :",
+                font=("Arial", 10, "bold"),
+                bg="white",
+                fg=self.color_blue
+            )
+            details_label.pack(anchor="w", pady=(15, 5))
+            
+            # Zone de texte avec défilement pour les détails
+            details_frame = tk.Frame(main_frame, bg="white")
+            details_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+            
+            details_text = scrolledtext.ScrolledText(
+                details_frame,
+                font=("Courier", 9),
+                height=8,
+                wrap=tk.WORD,
+                bg="#f8fafc",
+                relief=tk.FLAT
+            )
+            details_text.pack(fill=tk.BOTH, expand=True)
+            
+            for detail in missing_details[:20]:  # Limiter à 20 pour ne pas surcharger
+                details_text.insert(tk.END, f"• {detail['name']} ({detail['class']}) - {detail['reason']}\n")
+            
+            if len(missing_details) > 20:
+                details_text.insert(tk.END, f"\n... et {len(missing_details) - 20} autres\n")
+            
+            details_text.config(state=tk.DISABLED)
+        
+        # Message de conclusion
+        if replaced_count > 0:
+            conclusion_msg = "Les photos ont été remplacées avec succès dans CLASSE_JPG.\nVous pouvez maintenant générer le trombinoscope."
+            conclusion_color = self.color_green
+        else:
+            conclusion_msg = "Aucune photo n'a pu être remplacée.\nVérifiez que le dossier Pronote contient des photos avec la bonne syntaxe (Nom-Prénom)."
+            conclusion_color = "#dc2626"
+        
+        conclusion_label = tk.Label(
+            main_frame,
+            text=conclusion_msg,
+            font=("Arial", 10),
+            bg="white",
+            fg=conclusion_color,
+            justify=tk.CENTER
+        )
+        conclusion_label.pack(pady=15)
+        
+        # Frame pour les boutons
+        buttons_frame = tk.Frame(main_frame, bg="white")
+        buttons_frame.pack(pady=10)
+        
+        # Bouton Annuler (ferme juste la fenêtre)
+        cancel_btn = tk.Button(
+            buttons_frame,
+            text="Fermer",
+            command=popup.destroy,
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Bouton Générer le trombinoscope
+        generate_btn = tk.Button(
+            buttons_frame,
+            text="Générer le trombinoscope",
+            command=lambda: [popup.destroy(), self.generate_trombinoscope()],
+            bg=self.color_green,
+            fg="white",
+            font=("Arial", 10, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8
+        )
+        generate_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.update_status(f"Réparation terminée : {replaced_count} photo(s) remplacée(s)")
         
     def setup_ui(self):
         """Configuration de l'interface utilisateur"""
