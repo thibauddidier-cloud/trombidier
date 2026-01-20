@@ -48,6 +48,47 @@ class TrombinoscopeApp:
             "La bouffe du self est dégueulasse.",
             "Le saviez-vous ? Sophian est l'AED ayant passé le plus de temps dans mon bureau, estimant que c'est sa planque.",
             "Spéciale dédicace à Karen qui anime la vie lycéenne !",
+"La légende raconte qu'un certain Quentin Monnier serait directeur de colo ( et pas que ! )",
+"Christophe Pagis est l'enseignant avec les plus belles cravattes du lycée.",
+"Jarod peut remonter le temps grace à sa montre pendentif, seulement pendant son sommeil.",
+"Un certain S est en concurence avec C pour la séduction des enseignants.",
+"Larbi, ancien agent à Lautrec, a voulu se battre avec l'AED TICE et s'est fait virer depuis",
+"Les cookies de la cafet sont délicieux.",
+"Chose la plus insolite retrouvée dans un casier de prof : Un trognon de pomme et un dentier.",
+"Non Sarah, ce n'est pas à moi de changer la cartouche de ton imprimante.",
+"Les élèves de Mr Tempier semblent avoir le droit de faire un baseball en plein cours.",
+"Regardez le top 10 des élèves sanctionnés sur pronote, c'est surprenant. ",
+"En 2025, 2 AED ont vécu des choses pationnantes dans une salle de cours. Plusieurs fois.",
+"Mr Maiurano, ancien CPE, avait comme mot de passe pomme de pain ",
+"Cathy Condy a été ma maman spirituelle.",
+"Clement est un futur pompier, qui n'éteint pas que le feu des batiments.",
+"Non ECE, je ne te donnerai pas les identifiants admin pour que tu installes Paint.net ",
+"Econocom est vraiment la pire boite.",
+"Jarod, ta bien-pensance est appréciable, ta non-tolérance l'est moins, mais je t'aime.",
+"Maryse fait la gueule toute la matinée ( sauf si Clément est présent ).",
+"Une AED a déjà fait un resto basket au 100 couvert pour la saint valentin !",
+"Une pièce souterraine avec des poupées et des rituels vaudous a existé au lycée",
+"Le tacos aux légumes de la cafet est sous-coté mais il est très bon.",
+"Julien Pharos fait pleuvoir lorsqu'il chante au Boulis.",
+"Chaque année, des dizaines de rats crevés sont découverts dans les faux-plafonds.",
+"En Octobre 2025, quelqu'un a chié au niveau de la passerelle #cacagate",
+"Des lacrymos ont été entierement vidées dans les WC en 2025",
+"Marc Touya , arrête la clope mon champion.",
+"Des AED qui chopent des profs ? Oui ça s'est déjà fait.",
+"Des AED qui chopent des AED ? Oui, ça s'est déjà fait. Le Chene est dans la Scierie.",
+"Un élève a donné comme devoir PETE MOI LA CHATTE , en se connectant au Pronote d'une prof.",
+"La prof qui s'est fait 'pirater' son Pronote, a admis qu'elle s'était absentée 15mn du cours.",
+"Julien Pharos est l'enseignant avec le plus de retard au lycée, environ 15 mn par cours.",
+"Pauline , l'agent d'entretien a été ma seconde maman spirituelle, hein St Antoine de Padou !",
+"Certains contacts du téléphone pro ont été renommé avant l'arrivée de Paul.",
+"Mmr Novoa est objectivement l'une des personnes les plus humaines de l'établissement. ",
+"Julien pharos a reçu un tracte de reconquête dans son casier par pure provocation.",
+"Marc Andral a été la personne la moins pédagogique de l'établissement, comble d'un prof.",
+"Edouard Romera & Mylene Fournier sont les profs en couple les plus cools !",
+"Le bourrage papier de l'imprimante de Davina était en fait un sachet de beuh coincé.",
+"Brigitte de la Cafet a écrit un livre.",
+"Sirine est l'AED a qui vous ne pouvez confier aucun secret.",
+"Sophian investi dans des paris sportifs grâce à ChatGPT, mais reste en négatif.",
             "Marc Andral est un CONNARD :-) . Pardon, un GROS CONNARD !"
         ]
         self.easter_message_index = 0  # Index pour messages séquentiels
@@ -1150,7 +1191,7 @@ class TrombinoscopeApp:
                 try:
                     while True:
                         frame = self.psyduck_gif.copy()
-                        frame = frame.resize((80, 80), Image.Resampling.LANCZOS)
+                        frame = frame.resize((160, 80), Image.Resampling.LANCZOS)
                         self.psyduck_gif_frames.append(ImageTk.PhotoImage(frame))
                         self.psyduck_gif.seek(self.psyduck_gif.tell() + 1)
                 except EOFError:
@@ -1163,17 +1204,6 @@ class TrombinoscopeApp:
                     self.animate_psyduck_gif()
         except Exception as e:
             print(f"Erreur chargement GIF Psyduck: {e}")
-    
-    def animate_psyduck_gif(self):
-        """Animer le GIF Psyduck en continu"""
-        if hasattr(self, 'psyduck_gif_frames') and len(self.psyduck_gif_frames) > 0:
-            # Vérifier si le label existe toujours et est visible
-            if self.psyduck_gif_label.winfo_exists():
-                self.psyduck_gif_index = (self.psyduck_gif_index + 1) % len(self.psyduck_gif_frames)
-                self.psyduck_gif_label.config(image=self.psyduck_gif_frames[self.psyduck_gif_index])
-                # Répéter l'animation toutes les 100ms
-                self.root.after(100, self.animate_psyduck_gif)
-
         
         # Barre de progression (initialement cachée)
         self.progress_frame = tk.Frame(main_frame, bg=self.color_bg)
@@ -1221,7 +1251,17 @@ class TrombinoscopeApp:
             padx=10
         )
         self.status_label.pack(fill=tk.X, side=tk.BOTTOM)
-        
+    
+    def animate_psyduck_gif(self):
+        """Animer le GIF Psyduck en continu"""
+        if hasattr(self, 'psyduck_gif_frames') and len(self.psyduck_gif_frames) > 0:
+            # Vérifier si le label existe toujours et est visible
+            if self.psyduck_gif_label.winfo_exists():
+                self.psyduck_gif_index = (self.psyduck_gif_index + 1) % len(self.psyduck_gif_frames)
+                self.psyduck_gif_label.config(image=self.psyduck_gif_frames[self.psyduck_gif_index])
+                # Répéter l'animation toutes les 100ms
+                self.root.after(100, self.animate_psyduck_gif)
+    
     def select_folder(self):
         """Sélection du dossier CLASSE_JPG"""
         folder = filedialog.askdirectory(title="Sélectionner le dossier CLASSE_JPG")
