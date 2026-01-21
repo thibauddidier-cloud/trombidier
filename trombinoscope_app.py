@@ -294,53 +294,314 @@ class TrombinoscopeApp:
         close_btn.bind("<Leave>", close_on_leave)
         
     def show_easter_egg(self):
-        """Afficher un message Easter Egg séquentiel"""
+        """Afficher un message Easter Egg séquentiel (appelé après victoire du mini-jeu)"""
         # Utiliser l'index actuel au lieu de random
         message = self.easter_messages[self.easter_message_index]
         
         # Incrémenter l'index pour le prochain clic (avec boucle)
         self.easter_message_index = (self.easter_message_index + 1) % len(self.easter_messages)
         
-        # Créer une fenêtre popup
-        popup = tk.Toplevel(self.root)
-        popup.title("🦆 Psyduck vous parle...")
-        popup.geometry("450x200")
-        popup.configure(bg="white")
-        popup.resizable(False, False)
+        return message  # Retourner le message pour l'utiliser dans le mini-jeu
+    
+    def show_whack_a_psyduck_game(self):
+        """Afficher le mini-jeu Tape-Taupe avec Psykokwak"""
+        # Créer une fenêtre popup pour le jeu
+        game_popup = tk.Toplevel(self.root)
+        game_popup.title("🎮 Assomme le Psykokwak !")
+        game_popup.geometry("700x750")
+        game_popup.configure(bg="#1a1a2e")
+        game_popup.resizable(False, False)
         
         # Centrer la fenêtre
-        popup.transient(self.root)
-        popup.grab_set()
+        game_popup.transient(self.root)
+        game_popup.grab_set()
         
-        # Frame principale
-        frame = tk.Frame(popup, bg="white", padx=20, pady=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        # Variables du jeu stockées dans self pour accès global
+        self.game_state = {
+            'hits': 0,
+            'target_hits': 3,
+            'current_hole': None,
+            'game_active': True,
+            'psyduck_visible': False,
+            'game_timer': None,
+            'popup': game_popup,
+            'hole_labels': [],
+            'score_label': None,
+            'result_label': None,
+            'replay_btn': None,
+            'close_btn': None,
+            'psyduck_image': None
+        }
         
-        # Message
-        msg_label = tk.Label(
-            frame,
-            text=message,
-            font=("Arial", 11),
-            bg="white",
-            wraplength=400,
-            justify=tk.LEFT
+        # Frame principale avec fond dégradé simulé
+        main_frame = tk.Frame(game_popup, bg="#1a1a2e", padx=30, pady=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre du jeu avec style
+        title_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        title_frame.pack(pady=(0, 10))
+        
+        title_label = tk.Label(
+            title_frame,
+            text="🦆 ASSOMME LE PSYKOKWAK ! 🦆",
+            font=("Arial", 20, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700"
         )
-        msg_label.pack(pady=20)
+        title_label.pack()
         
-        # Bouton fermer
-        close_btn = tk.Button(
-            frame,
-            text="Fermer",
-            command=popup.destroy,
-            bg=self.color_blue,
+        subtitle_label = tk.Label(
+            title_frame,
+            text="Clique sur Psykokwak 3 fois pour obtenir un secret !",
+            font=("Arial", 11),
+            bg="#1a1a2e",
+            fg="#a0a0a0"
+        )
+        subtitle_label.pack(pady=(5, 0))
+        
+        # Compteur de score
+        score_frame = tk.Frame(main_frame, bg="#16213e", padx=20, pady=10)
+        score_frame.pack(pady=(10, 20))
+        
+        self.game_state['score_label'] = tk.Label(
+            score_frame,
+            text="🎯 Score: 0 / 3",
+            font=("Arial", 16, "bold"),
+            bg="#16213e",
+            fg="#00ff88"
+        )
+        self.game_state['score_label'].pack()
+        
+        # Frame du jeu (grille 3x3)
+        game_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        game_frame.pack(pady=10)
+        
+        # Charger l'image du psyduck pour le jeu
+        try:
+            psyduck_game_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck.png")
+            psyduck_game_img = Image.open(psyduck_game_path)
+            psyduck_game_img = psyduck_game_img.resize((70, 70), Image.Resampling.LANCZOS)
+            self.game_state['psyduck_image'] = ImageTk.PhotoImage(psyduck_game_img)
+        except Exception as e:
+            print(f"Erreur chargement psyduck pour le jeu: {e}")
+        
+        # Créer les 9 trous (3x3)
+        for row in range(3):
+            for col in range(3):
+                # Container pour chaque trou avec effet d'ombre
+                hole_container = tk.Frame(game_frame, bg="#1a1a2e", padx=8, pady=8)
+                hole_container.grid(row=row, column=col)
+                
+                # Le "trou" avec effet 3D
+                hole_frame = tk.Frame(
+                    hole_container,
+                    bg="#0d1117",
+                    highlightbackground="#2d3748",
+                    highlightthickness=3,
+                    width=100,
+                    height=100
+                )
+                hole_frame.pack_propagate(False)
+                hole_frame.pack()
+                
+                # Label pour afficher le psyduck ou rien
+                hole_label = tk.Label(
+                    hole_frame,
+                    bg="#0d1117",
+                    width=100,
+                    height=100,
+                    cursor="crosshair"
+                )
+                hole_label.pack(expand=True, fill=tk.BOTH)
+                
+                # Index du trou
+                hole_index = row * 3 + col
+                self.game_state['hole_labels'].append(hole_label)
+                
+                # Binding pour le clic sur le trou - utilise une méthode de classe
+                hole_label.bind("<Button-1>", lambda e, idx=hole_index: self.on_game_hole_click(idx))
+        
+        # Frame pour le message de résultat
+        result_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        result_frame.pack(pady=(20, 10), fill=tk.X)
+        
+        self.game_state['result_label'] = tk.Label(
+            result_frame,
+            text="",
+            font=("Arial", 11),
+            bg="#1a1a2e",
+            fg="#ffffff",
+            wraplength=550,
+            justify=tk.CENTER
+        )
+        self.game_state['result_label'].pack()
+        
+        # Frame pour les boutons
+        button_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        button_frame.pack(pady=(15, 0))
+        
+        # Bouton rejouer (initialement caché)
+        self.game_state['replay_btn'] = tk.Button(
+            button_frame,
+            text="🔄 Rejouer",
+            command=self.restart_whack_game,
+            bg="#059669",
             fg="white",
-            font=("Arial", 10, "bold"),
+            font=("Arial", 12, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=20,
-            pady=5
+            padx=25,
+            pady=10,
+            activebackground="#047857",
+            borderwidth=0
         )
-        close_btn.pack()
+        
+        # Bouton fermer (initialement caché)
+        self.game_state['close_btn'] = tk.Button(
+            button_frame,
+            text="✖ Fermer",
+            command=self.close_whack_game,
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=25,
+            pady=10,
+            activebackground="#4b5563",
+            borderwidth=0
+        )
+        
+        # Effets hover pour les boutons
+        self.game_state['replay_btn'].bind("<Enter>", lambda e: self.game_state['replay_btn'].config(bg="#047857"))
+        self.game_state['replay_btn'].bind("<Leave>", lambda e: self.game_state['replay_btn'].config(bg="#059669"))
+        self.game_state['close_btn'].bind("<Enter>", lambda e: self.game_state['close_btn'].config(bg="#4b5563"))
+        self.game_state['close_btn'].bind("<Leave>", lambda e: self.game_state['close_btn'].config(bg="#6b7280"))
+        
+        # Fermer proprement si la fenêtre est fermée
+        game_popup.protocol("WM_DELETE_WINDOW", self.close_whack_game)
+        
+        # Démarrer le jeu après un court délai
+        game_popup.after(800, self.show_psyduck_random)
+    
+    def on_game_hole_click(self, hole_idx):
+        """Gestionnaire de clic sur un trou du jeu"""
+        if not self.game_state['game_active']:
+            return
+        
+        if self.game_state['psyduck_visible'] and self.game_state['current_hole'] == hole_idx:
+            # TOUCHÉ !
+            self.game_state['hits'] += 1
+            self.game_state['score_label'].config(text=f"🎯 Score: {self.game_state['hits']} / 3")
+            
+            # Effet visuel de touche
+            self.game_state['hole_labels'][hole_idx].config(bg="#00ff00")
+            self.game_state['popup'].after(150, lambda: self.game_state['hole_labels'][hole_idx].config(bg="#0d1117"))
+            
+            # Cacher le psyduck immédiatement
+            self.hide_game_psyduck()
+            
+            # Vérifier la victoire
+            if self.game_state['hits'] >= self.game_state['target_hits']:
+                self.game_state['game_active'] = False
+                self.game_state['popup'].after(300, self.show_game_victory)
+            else:
+                # Continuer le jeu après un court délai
+                self.game_state['popup'].after(500, self.show_psyduck_random)
+    
+    def show_psyduck_random(self):
+        """Afficher le psyduck dans un trou aléatoire"""
+        if not self.game_state['game_active']:
+            return
+        
+        # Cacher l'ancien psyduck si visible
+        self.hide_game_psyduck()
+        
+        # Choisir un nouveau trou aléatoire
+        new_hole = random.randint(0, 8)
+        self.game_state['current_hole'] = new_hole
+        self.game_state['psyduck_visible'] = True
+        
+        # Afficher le psyduck
+        if self.game_state['psyduck_image']:
+            self.game_state['hole_labels'][new_hole].config(image=self.game_state['psyduck_image'], bg="#2d3748")
+        else:
+            self.game_state['hole_labels'][new_hole].config(text="🦆", font=("Arial", 40), bg="#2d3748")
+        
+        # Programmer la disparition après un délai (400-600ms)
+        hide_delay = random.randint(400, 600)
+        self.game_state['game_timer'] = self.game_state['popup'].after(hide_delay, self.auto_hide_psyduck)
+    
+    def auto_hide_psyduck(self):
+        """Cacher le psyduck et en afficher un autre - RATÉ = score à 0"""
+        if self.game_state['psyduck_visible'] and self.game_state['game_active']:
+            # Le psyduck a disparu sans être cliqué = RATÉ
+            if self.game_state['hits'] > 0:
+                self.game_state['hits'] = 0
+                self.game_state['score_label'].config(text="🎯 Score: 0 / 3", fg="#ff4444")
+                self.game_state['popup'].after(300, lambda: self.game_state['score_label'].config(fg="#00ff88"))
+            self.hide_game_psyduck()
+            # Afficher un nouveau psyduck après un court délai
+            self.game_state['popup'].after(300, self.show_psyduck_random)
+    
+    def hide_game_psyduck(self):
+        """Cacher le psyduck actuel"""
+        if self.game_state['current_hole'] is not None:
+            self.game_state['hole_labels'][self.game_state['current_hole']].config(image='', text='', bg="#0d1117")
+        self.game_state['psyduck_visible'] = False
+        if self.game_state['game_timer']:
+            self.game_state['popup'].after_cancel(self.game_state['game_timer'])
+            self.game_state['game_timer'] = None
+    
+    def show_game_victory(self):
+        """Afficher l'écran de victoire avec le message Easter Egg"""
+        # Obtenir le message séquentiel
+        message = self.show_easter_egg()
+        
+        # Afficher le message de victoire
+        self.game_state['result_label'].config(
+            text=f"🎉 BRAVO ! Tu as assommé Psykokwak !\n\n💬 \"{message}\"",
+            fg="#ffd700",
+            font=("Arial", 12, "bold")
+        )
+        
+        # Forcer la mise à jour
+        self.game_state['popup'].update_idletasks()
+        
+        # Afficher les boutons rejouer et fermer
+        self.game_state['replay_btn'].pack(side=tk.LEFT, padx=10)
+        self.game_state['close_btn'].pack(side=tk.LEFT, padx=10)
+        
+        # Forcer à nouveau la mise à jour pour s'assurer que les boutons sont visibles
+        self.game_state['popup'].update_idletasks()
+    
+    def restart_whack_game(self):
+        """Redémarrer le jeu"""
+        self.game_state['hits'] = 0
+        self.game_state['current_hole'] = None
+        self.game_state['game_active'] = True
+        self.game_state['psyduck_visible'] = False
+        
+        self.game_state['score_label'].config(text="🎯 Score: 0 / 3", fg="#00ff88")
+        self.game_state['result_label'].config(text="", font=("Arial", 11))
+        
+        # Cacher les boutons
+        self.game_state['replay_btn'].pack_forget()
+        self.game_state['close_btn'].pack_forget()
+        
+        # Cacher tous les psyducks
+        for label in self.game_state['hole_labels']:
+            label.config(image='', text='', bg="#0d1117")
+        
+        # Redémarrer le jeu
+        self.game_state['popup'].after(500, self.show_psyduck_random)
+    
+    def close_whack_game(self):
+        """Fermer le jeu"""
+        self.game_state['game_active'] = False
+        if self.game_state['game_timer']:
+            self.game_state['popup'].after_cancel(self.game_state['game_timer'])
+        self.game_state['popup'].destroy()
     
     def show_missing_photos_alert(self, missing_count):
         """Afficher une alerte pour les photos manquantes (21ko)"""
@@ -932,7 +1193,7 @@ class TrombinoscopeApp:
         )
         title_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Logo Psyduck cliquable (Easter Egg)
+        # Logo Psyduck décoratif dans le header
         try:
             psyduck_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck.png")
             psyduck_img = Image.open(psyduck_path)
@@ -942,11 +1203,9 @@ class TrombinoscopeApp:
             psyduck_label = tk.Label(
                 title_container,
                 image=self.psyduck_photo,
-                bg=self.color_blue,
-                cursor="hand2"
+                bg=self.color_blue
             )
             psyduck_label.pack(side=tk.LEFT)
-            psyduck_label.bind("<Button-1>", lambda e: self.show_easter_egg())
         except Exception as e:
             print(f"Erreur chargement psyduck: {e}")
         
@@ -1175,11 +1434,11 @@ class TrombinoscopeApp:
         generate_btn.bind("<Enter>", generate_on_enter)
         generate_btn.bind("<Leave>", generate_on_leave)
         
-        # GIF Psyduck à côté du bouton (initialement visible)
+        # GIF Psyduck à côté du bouton (cliquable pour le mini-jeu Easter Egg)
         psyduck_gif_container = tk.Frame(action_frame, bg=self.color_bg)
         psyduck_gif_container.pack(side=tk.LEFT, padx=(20, 0))
         
-        self.psyduck_gif_label = tk.Label(psyduck_gif_container, bg=self.color_bg)
+        self.psyduck_gif_label = tk.Label(psyduck_gif_container, bg=self.color_bg, cursor="hand2")
         self.psyduck_gif_label.pack()
         
         # Charger le GIF animé
@@ -1202,6 +1461,8 @@ class TrombinoscopeApp:
                     self.psyduck_gif_label.config(image=self.psyduck_gif_frames[0])
                     # Démarrer l'animation
                     self.animate_psyduck_gif()
+                # Rendre le GIF cliquable pour ouvrir le mini-jeu
+                self.psyduck_gif_label.bind("<Button-1>", lambda e: self.show_whack_a_psyduck_game())
         except Exception as e:
             print(f"Erreur chargement GIF Psyduck: {e}")
         
