@@ -20,10 +20,23 @@ from docx.oxml import OxmlElement
 import shutil
 from datetime import datetime
 import random
+import json
+import threading
+
+# Tentative d'importer pygame pour les sons (optionnel)
+try:
+    import pygame
+    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+    PYGAME_AVAILABLE = True
+except ImportError:
+    PYGAME_AVAILABLE = False
 
 
 class TrombinoscopeApp:
     """Application principale de génération de trombinoscope"""
+    
+    # Chemin du fichier de sauvegarde pour les phrases achetées
+    SAVE_FILE = os.path.join(os.path.dirname(__file__), "casino_save.json")
     
     def __init__(self, root):
         self.root = root
@@ -36,6 +49,9 @@ class TrombinoscopeApp:
         self.school_name = tk.StringVar(value="Lycée Toulouse Lautrec")
         self.school_year = tk.StringVar(value="2024-2025")
         self.classes_data = {}
+        
+        # Charger les phrases achetées depuis le fichier de sauvegarde
+        self.purchased_phrases = self.load_purchased_phrases()
         
         # Couleurs institutionnelles
         self.color_blue = "#000000"  # Noir (bandeau)
@@ -199,6 +215,132 @@ class TrombinoscopeApp:
         about_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="À propos", menu=about_menu)
         about_menu.add_command(label="À propos de l'application", command=self.show_about)
+    
+    def load_purchased_phrases(self):
+        """Charger les phrases achetées depuis le fichier de sauvegarde"""
+        try:
+            if os.path.exists(self.SAVE_FILE):
+                with open(self.SAVE_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return set(data.get('purchased_phrases', []))
+        except Exception as e:
+            print(f"Erreur chargement sauvegarde: {e}")
+        return set()
+    
+    def save_purchased_phrases(self):
+        """Sauvegarder les phrases achetées dans le fichier"""
+        try:
+            data = {'purchased_phrases': list(self.purchased_phrases)}
+            with open(self.SAVE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Erreur sauvegarde: {e}")
+    
+    def play_sound(self, sound_type):
+        """Jouer un effet sonore rétro style Game Boy"""
+        if not PYGAME_AVAILABLE:
+            return
+        
+        def _play():
+            try:
+                # Créer des sons 8-bit style Game Boy
+                sample_rate = 22050
+                
+                if sound_type == 'spin':
+                    # Son de démarrage des rouleaux - bruit montant
+                    duration = 0.15
+                    freq_start, freq_end = 200, 600
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    for i in range(samples):
+                        freq = freq_start + (freq_end - freq_start) * (i / samples)
+                        val = int(127 * (1 if (i * freq / sample_rate) % 1 < 0.5 else -1))
+                        sound_array.append(val)
+                    
+                elif sound_type == 'reel_stop':
+                    # Son d'arrêt d'un rouleau - blip court
+                    duration = 0.08
+                    freq = 440
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    for i in range(samples):
+                        decay = 1 - (i / samples)
+                        val = int(100 * decay * (1 if (i * freq / sample_rate) % 1 < 0.5 else -1))
+                        sound_array.append(val)
+                    
+                elif sound_type == 'win':
+                    # Son de victoire - mélodie montante
+                    duration = 0.4
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    notes = [523, 659, 784, 1047]  # Do Mi Sol Do (octave)
+                    note_len = samples // len(notes)
+                    for note_idx, freq in enumerate(notes):
+                        for i in range(note_len):
+                            val = int(100 * (1 if ((note_idx * note_len + i) * freq / sample_rate) % 1 < 0.5 else -1))
+                            sound_array.append(val)
+                    
+                elif sound_type == 'jackpot':
+                    # Son de jackpot - fanfare
+                    duration = 0.6
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    notes = [523, 523, 523, 659, 784, 784, 659, 784, 1047]
+                    note_len = samples // len(notes)
+                    for note_idx, freq in enumerate(notes):
+                        for i in range(note_len):
+                            val = int(110 * (1 if ((note_idx * note_len + i) * freq / sample_rate) % 1 < 0.5 else -1))
+                            sound_array.append(val)
+                    
+                elif sound_type == 'lose':
+                    # Son de perte - ton descendant triste
+                    duration = 0.3
+                    freq_start, freq_end = 400, 150
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    for i in range(samples):
+                        freq = freq_start + (freq_end - freq_start) * (i / samples)
+                        decay = 1 - (i / samples) * 0.5
+                        val = int(80 * decay * (1 if (i * freq / sample_rate) % 1 < 0.5 else -1))
+                        sound_array.append(val)
+                    
+                elif sound_type == 'purchase':
+                    # Son d'achat - cha-ching!
+                    duration = 0.25
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    notes = [880, 1109, 1319]  # La Do# Mi
+                    note_len = samples // len(notes)
+                    for note_idx, freq in enumerate(notes):
+                        for i in range(note_len):
+                            val = int(90 * (1 if ((note_idx * note_len + i) * freq / sample_rate) % 1 < 0.5 else -1))
+                            sound_array.append(val)
+                    
+                elif sound_type == 'error':
+                    # Son d'erreur - buzzer
+                    duration = 0.2
+                    freq = 150
+                    samples = int(sample_rate * duration)
+                    sound_array = []
+                    for i in range(samples):
+                        val = int(70 * (1 if (i * freq / sample_rate) % 1 < 0.5 else -1))
+                        sound_array.append(val)
+                else:
+                    return
+                
+                # Créer le son avec pygame
+                import numpy as np
+                sound_array = np.array(sound_array, dtype=np.int8)
+                # Convertir en stéréo
+                stereo = np.column_stack((sound_array, sound_array))
+                sound = pygame.sndarray.make_sound(stereo)
+                sound.play()
+                
+            except Exception as e:
+                print(f"Erreur son: {e}")
+        
+        # Jouer le son dans un thread séparé pour ne pas bloquer l'UI
+        threading.Thread(target=_play, daemon=True).start()
         
     def show_about(self):
         """Afficher la fenêtre À propos"""
@@ -382,6 +524,12 @@ class TrombinoscopeApp:
             psyduck_game_img = Image.open(psyduck_game_path)
             psyduck_game_img = psyduck_game_img.resize((70, 70), Image.Resampling.LANCZOS)
             self.game_state['psyduck_image'] = ImageTk.PhotoImage(psyduck_game_img)
+            
+            # Charger l'image psyduck-ko pour l'animation de frappe
+            psyduck_ko_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck-ko.png")
+            psyduck_ko_img = Image.open(psyduck_ko_path)
+            psyduck_ko_img = psyduck_ko_img.resize((70, 70), Image.Resampling.LANCZOS)
+            self.game_state['psyduck_ko_image'] = ImageTk.PhotoImage(psyduck_ko_img)
         except Exception as e:
             print(f"Erreur chargement psyduck pour le jeu: {e}")
         
@@ -494,20 +642,35 @@ class TrombinoscopeApp:
             self.game_state['hits'] += 1
             self.game_state['score_label'].config(text=f"🎯 Score: {self.game_state['hits']} / 3")
             
-            # Effet visuel de touche
-            self.game_state['hole_labels'][hole_idx].config(bg="#00ff00")
-            self.game_state['popup'].after(150, lambda: self.game_state['hole_labels'][hole_idx].config(bg="#0d1117"))
+            # Annuler le timer de disparition automatique
+            if self.game_state['game_timer']:
+                self.game_state['popup'].after_cancel(self.game_state['game_timer'])
+                self.game_state['game_timer'] = None
             
-            # Cacher le psyduck immédiatement
-            self.hide_game_psyduck()
-            
-            # Vérifier la victoire
-            if self.game_state['hits'] >= self.game_state['target_hits']:
-                self.game_state['game_active'] = False
-                self.game_state['popup'].after(300, self.show_game_victory)
+            # Afficher l'image psyduck-ko pendant 500ms pour simuler la frappe
+            if self.game_state.get('psyduck_ko_image'):
+                self.game_state['hole_labels'][hole_idx].config(
+                    image=self.game_state['psyduck_ko_image'], 
+                    bg="#ff6b6b"
+                )
             else:
-                # Continuer le jeu après un court délai
-                self.game_state['popup'].after(500, self.show_psyduck_random)
+                # Fallback si l'image KO n'est pas chargée
+                self.game_state['hole_labels'][hole_idx].config(bg="#ff6b6b")
+            
+            # Après 500ms, cacher l'image et continuer le jeu
+            def after_ko_animation():
+                self.game_state['hole_labels'][hole_idx].config(image='', text='', bg="#0d1117")
+                self.game_state['psyduck_visible'] = False
+                
+                # Vérifier la victoire
+                if self.game_state['hits'] >= self.game_state['target_hits']:
+                    self.game_state['game_active'] = False
+                    self.game_state['popup'].after(300, self.show_game_victory)
+                else:
+                    # Continuer le jeu après un court délai
+                    self.game_state['popup'].after(300, self.show_psyduck_random)
+            
+            self.game_state['popup'].after(500, after_ko_animation)
     
     def show_psyduck_random(self):
         """Afficher le psyduck dans un trou aléatoire"""
@@ -602,6 +765,653 @@ class TrombinoscopeApp:
         if self.game_state['game_timer']:
             self.game_state['popup'].after_cancel(self.game_state['game_timer'])
         self.game_state['popup'].destroy()
+    
+    def show_casino_game(self):
+        """Afficher le jeu de casino - Machine à sous Lautrec Game Corner"""
+        # Créer une fenêtre popup pour le casino
+        casino_popup = tk.Toplevel(self.root)
+        casino_popup.title("🎰 Lautrec Game Corner - Machine à Sous")
+        casino_popup.geometry("550x750")
+        casino_popup.configure(bg="#1a1a2e")
+        casino_popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        casino_popup.transient(self.root)
+        casino_popup.grab_set()
+        
+        # Variables du casino
+        self.casino_state = {
+            'popup': casino_popup,
+            'credits': 100,
+            'payout': 0,
+            'spinning': False,
+            'reel_labels': [],
+            'credit_label': None,
+            'payout_label': None,
+            'result_label': None,
+            'spin_btn': None,
+            'symbol_images': {},
+            'reel_values': [0, 0, 0],  # Index des symboles pour chaque rouleau
+            'spin_timers': [None, None, None]  # Timers pour l'animation
+        }
+        
+        # Liste des symboles du casino avec leurs valeurs
+        self.casino_symbols = [
+            {'name': '7', 'file': 'Celadon_Game_Corner_7_FRLG.png', 'value': 1000},
+            {'name': 'Pikachu', 'file': 'Celadon_Game_Corner_Pikachu_FRLG.png', 'value': 150},
+            {'name': 'Psyduck', 'file': 'Celadon_Game_Corner_Psyduck_FRLG.png', 'value': 130},
+            {'name': 'Magnemite', 'file': 'Celadon_Game_Corner_Magnemite_FRLG.png', 'value': 128},
+            {'name': 'Staryu', 'file': 'Celadon_Game_Corner_Staryu_FRLG.png', 'value': 125},
+            {'name': 'Shellder', 'file': 'Celadon_Game_Corner_Shellder_FRLG.png', 'value': 123},
+            {'name': 'Slowpoke', 'file': 'Celadon_Game_Corner_Slowpoke_FRLG.png', 'value': 122},
+            {'name': 'Voltorb', 'file': 'Celadon_Game_Corner_Voltorb_FRLG.png', 'value': 120},
+        ]
+        
+        # Charger les images des symboles
+        for symbol in self.casino_symbols:
+            try:
+                symbol_path = os.path.join(os.path.dirname(__file__), "assets", symbol['file'])
+                symbol_img = Image.open(symbol_path)
+                symbol_img = symbol_img.resize((60, 60), Image.Resampling.LANCZOS)
+                self.casino_state['symbol_images'][symbol['name']] = ImageTk.PhotoImage(symbol_img)
+            except Exception as e:
+                print(f"Erreur chargement symbole {symbol['name']}: {e}")
+        
+        # Charger l'image de fond de la machine
+        try:
+            gamecorner_path = os.path.join(os.path.dirname(__file__), "assets", "gamecorner.png")
+            gamecorner_img = Image.open(gamecorner_path)
+            gamecorner_img = gamecorner_img.resize((450, 380), Image.Resampling.LANCZOS)
+            self.casino_state['gamecorner_image'] = ImageTk.PhotoImage(gamecorner_img)
+        except Exception as e:
+            print(f"Erreur chargement gamecorner: {e}")
+        
+        # Frame principale
+        main_frame = tk.Frame(casino_popup, bg="#1a1a2e", padx=20, pady=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="🎰 Lautrec Game Corner 🎰",
+            font=("Arial", 18, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700"
+        )
+        title_label.pack(pady=(0, 10))
+        
+        # Frame pour afficher les crédits et payout
+        score_frame = tk.Frame(main_frame, bg="#16213e", padx=20, pady=10)
+        score_frame.pack(pady=(5, 15), fill=tk.X)
+        
+        credits_container = tk.Frame(score_frame, bg="#16213e")
+        credits_container.pack(side=tk.LEFT, expand=True)
+        
+        tk.Label(
+            credits_container,
+            text="CRÉDITS",
+            font=("Arial", 10, "bold"),
+            bg="#16213e",
+            fg="#a0a0a0"
+        ).pack()
+        
+        self.casino_state['credit_label'] = tk.Label(
+            credits_container,
+            text=str(self.casino_state['credits']),
+            font=("Arial", 20, "bold"),
+            bg="#16213e",
+            fg="#00ff88"
+        )
+        self.casino_state['credit_label'].pack()
+        
+        payout_container = tk.Frame(score_frame, bg="#16213e")
+        payout_container.pack(side=tk.RIGHT, expand=True)
+        
+        tk.Label(
+            payout_container,
+            text="GAIN",
+            font=("Arial", 10, "bold"),
+            bg="#16213e",
+            fg="#a0a0a0"
+        ).pack()
+        
+        self.casino_state['payout_label'] = tk.Label(
+            payout_container,
+            text=str(self.casino_state['payout']),
+            font=("Arial", 20, "bold"),
+            bg="#16213e",
+            fg="#ffd700"
+        )
+        self.casino_state['payout_label'].pack()
+        
+        # Frame pour les rouleaux
+        reels_outer_frame = tk.Frame(main_frame, bg="#8B4513", padx=10, pady=10)
+        reels_outer_frame.pack(pady=10)
+        
+        reels_frame = tk.Frame(reels_outer_frame, bg="#2d2d2d")
+        reels_frame.pack()
+        
+        # Créer les 3 rouleaux
+        for i in range(3):
+            reel_container = tk.Frame(reels_frame, bg="#1a1a1a", padx=5, pady=5)
+            reel_container.pack(side=tk.LEFT, padx=5)
+            
+            reel_label = tk.Label(
+                reel_container,
+                bg="#ffffff",
+                width=80,
+                height=80,
+                relief=tk.SUNKEN,
+                borderwidth=3
+            )
+            reel_label.pack()
+            
+            # Initialiser avec un symbole aléatoire
+            initial_symbol = random.choice(self.casino_symbols)
+            if initial_symbol['name'] in self.casino_state['symbol_images']:
+                reel_label.config(image=self.casino_state['symbol_images'][initial_symbol['name']])
+            self.casino_state['reel_values'][i] = self.casino_symbols.index(initial_symbol)
+            self.casino_state['reel_labels'].append(reel_label)
+        
+        # Label pour le résultat
+        self.casino_state['result_label'] = tk.Label(
+            main_frame,
+            text="Appuyez sur SPIN pour jouer ! (Coût: 5 crédits)",
+            font=("Arial", 11),
+            bg="#1a1a2e",
+            fg="#ffffff",
+            wraplength=400
+        )
+        self.casino_state['result_label'].pack(pady=15)
+        
+        # Frame pour les boutons
+        btn_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        btn_frame.pack(pady=10)
+        
+        # Bouton SPIN
+        self.casino_state['spin_btn'] = tk.Button(
+            btn_frame,
+            text="🎰 SPIN !",
+            command=self.casino_spin,
+            bg="#dc2626",
+            fg="white",
+            font=("Arial", 14, "bold"),
+            cursor="hand2",
+            relief=tk.RAISED,
+            padx=40,
+            pady=15,
+            activebackground="#b91c1c",
+            borderwidth=3
+        )
+        self.casino_state['spin_btn'].pack(side=tk.LEFT, padx=10)
+        
+        # Bouton Fermer
+        close_btn = tk.Button(
+            btn_frame,
+            text="✖ Quitter",
+            command=self.close_casino_game,
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=25,
+            pady=12,
+            activebackground="#4b5563",
+            borderwidth=0
+        )
+        close_btn.pack(side=tk.LEFT, padx=10)
+        
+        # Bouton Inventaire des phrases
+        inventory_btn = tk.Button(
+            btn_frame,
+            text="📜 Phrases",
+            command=self.show_phrase_inventory,
+            bg="#8b5cf6",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=12,
+            activebackground="#7c3aed",
+            borderwidth=0
+        )
+        inventory_btn.pack(side=tk.LEFT, padx=10)
+        
+        # Effets hover pour le bouton inventaire
+        def inv_on_enter(e):
+            inventory_btn.config(bg="#7c3aed")
+        def inv_on_leave(e):
+            inventory_btn.config(bg="#8b5cf6")
+        inventory_btn.bind("<Enter>", inv_on_enter)
+        inventory_btn.bind("<Leave>", inv_on_leave)
+        
+        # Compteur de phrases débloquées
+        total_phrases = len(self.easter_messages)
+        unlocked_phrases = len(self.purchased_phrases)
+        
+        phrases_label = tk.Label(
+            main_frame,
+            text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (115 crédits/phrase)",
+            font=("Arial", 10),
+            bg="#1a1a2e",
+            fg="#a78bfa"
+        )
+        phrases_label.pack(pady=(5, 10))
+        self.casino_state['phrases_label'] = phrases_label
+        
+        # Table des gains
+        paytable_frame = tk.LabelFrame(
+            main_frame,
+            text="📋 Table des gains",
+            font=("Arial", 10, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700",
+            padx=10,
+            pady=5
+        )
+        paytable_frame.pack(pady=5, fill=tk.X)
+        
+        paytable_text = "777 = 1000 | Pikachu x3 = 500 | Psyduck x3 = 300 | 2 identiques = valeur/3"
+        tk.Label(
+            paytable_frame,
+            text=paytable_text,
+            font=("Arial", 9),
+            bg="#1a1a2e",
+            fg="#a0a0a0",
+            wraplength=450
+        ).pack()
+        
+        # Fermer proprement si la fenêtre est fermée
+        casino_popup.protocol("WM_DELETE_WINDOW", self.close_casino_game)
+    
+    def casino_spin(self):
+        """Lancer les rouleaux du casino"""
+        if self.casino_state['spinning']:
+            return
+        
+        # Vérifier les crédits
+        if self.casino_state['credits'] < 5:
+            self.casino_state['result_label'].config(
+                text="❌ Pas assez de crédits ! Minimum 5 crédits requis.",
+                fg="#ff4444"
+            )
+            self.play_sound('error')
+            return
+        
+        # Jouer le son de spin
+        self.play_sound('spin')
+        
+        # Déduire les crédits
+        self.casino_state['credits'] -= 5
+        self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+        self.casino_state['payout'] = 0
+        self.casino_state['payout_label'].config(text="0")
+        self.casino_state['result_label'].config(text="🎰 Les rouleaux tournent...", fg="#ffffff")
+        self.casino_state['spinning'] = True
+        self.casino_state['spin_btn'].config(state=tk.DISABLED)
+        
+        # Animer les rouleaux avec des délais différents
+        # Rouleau 1: s'arrête en premier (après 1 seconde)
+        # Rouleau 2: s'arrête ensuite (après 1.5 secondes)
+        # Rouleau 3: s'arrête en dernier (après 2 secondes)
+        
+        self.spin_count = [15, 20, 25]  # Nombre de rotations pour chaque rouleau
+        self.current_spin = [0, 0, 0]
+        self.reels_stopped = [False, False, False]  # Pour tracker les sons d'arrêt
+        
+        # Démarrer l'animation pour chaque rouleau
+        for i in range(3):
+            self.animate_reel(i)
+    
+    def animate_reel(self, reel_idx):
+        """Animer un rouleau spécifique"""
+        if self.current_spin[reel_idx] < self.spin_count[reel_idx]:
+            # Changer le symbole aléatoirement
+            new_symbol_idx = random.randint(0, len(self.casino_symbols) - 1)
+            symbol = self.casino_symbols[new_symbol_idx]
+            
+            if symbol['name'] in self.casino_state['symbol_images']:
+                self.casino_state['reel_labels'][reel_idx].config(
+                    image=self.casino_state['symbol_images'][symbol['name']]
+                )
+            
+            self.casino_state['reel_values'][reel_idx] = new_symbol_idx
+            self.current_spin[reel_idx] += 1
+            
+            # Vitesse de rotation (ralentit vers la fin)
+            delay = 50 + (self.current_spin[reel_idx] * 3)
+            self.casino_state['spin_timers'][reel_idx] = self.casino_state['popup'].after(
+                delay, lambda idx=reel_idx: self.animate_reel(idx)
+            )
+        else:
+            # Ce rouleau a fini de tourner - jouer le son d'arrêt
+            if not self.reels_stopped[reel_idx]:
+                self.reels_stopped[reel_idx] = True
+                self.play_sound('reel_stop')
+            
+            # Vérifier si tous les rouleaux ont fini
+            all_done = all(self.current_spin[i] >= self.spin_count[i] for i in range(3))
+            if all_done:
+                self.check_casino_result()
+    
+    def check_casino_result(self):
+        """Vérifier le résultat et calculer les gains"""
+        self.casino_state['spinning'] = False
+        self.casino_state['spin_btn'].config(state=tk.NORMAL)
+        
+        # Obtenir les symboles finaux
+        symbols = [self.casino_symbols[idx] for idx in self.casino_state['reel_values']]
+        names = [s['name'] for s in symbols]
+        
+        payout = 0
+        result_text = ""
+        
+        # Vérifier les combinaisons gagnantes
+        if names[0] == names[1] == names[2]:
+            # 3 symboles identiques - JACKPOT!
+            payout = symbols[0]['value']
+            if names[0] == '7':
+                result_text = f"🎉 JACKPOT! Triple 7! +{payout} crédits!"
+            else:
+                result_text = f"🎉 SUPER! 3x {names[0]}! +{payout} crédits!"
+        elif names[0] == names[1] or names[1] == names[2] or names[0] == names[2]:
+            # 2 symboles identiques
+            if names[0] == names[1]:
+                payout = symbols[0]['value'] // 5
+            elif names[1] == names[2]:
+                payout = symbols[1]['value'] // 5
+            else:
+                payout = symbols[0]['value'] // 5
+            payout = max(payout, 2)
+            result_text = f"👍 2 identiques! +{payout} crédits!"
+        else:
+            result_text = "😔 Pas de chance... Réessayez!"
+        
+        # Mettre à jour les gains
+        if payout > 0:
+            self.casino_state['credits'] += payout
+            self.casino_state['payout'] = payout
+            self.casino_state['payout_label'].config(text=str(payout))
+            self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+            result_color = "#00ff88"
+            # Jouer le son de victoire
+            if payout >= 50:
+                self.play_sound('jackpot')
+            else:
+                self.play_sound('win')
+        else:
+            result_color = "#ff8888"
+            self.play_sound('lose')
+        
+        self.casino_state['result_label'].config(text=result_text, fg=result_color)
+        
+        # Mettre à jour le compteur de phrases
+        if 'phrases_label' in self.casino_state:
+            total_phrases = len(self.easter_messages)
+            unlocked_phrases = len(self.purchased_phrases)
+            self.casino_state['phrases_label'].config(
+                text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (115 crédits/phrase)"
+            )
+        
+        # Vérifier si le joueur est ruiné
+        if self.casino_state['credits'] < 3:
+            self.casino_state['result_label'].config(
+                text=result_text + "\n💸 Plus assez de crédits! Bonus: +50 crédits!",
+                fg="#ffd700"
+            )
+            self.casino_state['credits'] += 50
+            self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+    
+    def close_casino_game(self):
+        """Fermer le jeu de casino"""
+        # Annuler tous les timers en cours
+        for timer in self.casino_state.get('spin_timers', []):
+            if timer:
+                try:
+                    self.casino_state['popup'].after_cancel(timer)
+                except:
+                    pass
+        self.casino_state['popup'].destroy()
+    
+    def show_phrase_inventory(self):
+        """Afficher l'inventaire des phrases à acheter"""
+        # Créer une fenêtre popup pour l'inventaire
+        inventory_popup = tk.Toplevel(self.casino_state['popup'])
+        inventory_popup.title("📜 Inventaire des Phrases Secrètes")
+        inventory_popup.geometry("700x600")
+        inventory_popup.configure(bg="#1a1a2e")
+        inventory_popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        inventory_popup.transient(self.casino_state['popup'])
+        inventory_popup.grab_set()
+        
+        # Frame principale
+        main_frame = tk.Frame(inventory_popup, bg="#1a1a2e", padx=20, pady=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="📜 PHRASES SECRÈTES 📜",
+            font=("Arial", 16, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700"
+        )
+        title_label.pack(pady=(0, 5))
+        
+        # Sous-titre avec compteur
+        total_phrases = len(self.easter_messages)
+        unlocked_count = len(self.purchased_phrases)
+        
+        subtitle_label = tk.Label(
+            main_frame,
+            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 115 crédits par phrase",
+            font=("Arial", 10),
+            bg="#1a1a2e",
+            fg="#a78bfa"
+        )
+        subtitle_label.pack(pady=(0, 15))
+        
+        # Frame avec scrollbar pour les phrases
+        canvas_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+        
+        canvas = tk.Canvas(canvas_frame, bg="#1a1a2e", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#1a1a2e")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Permettre le scroll avec la molette
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Stocker les références pour mise à jour
+        self.inventory_state = {
+            'popup': inventory_popup,
+            'phrase_labels': [],
+            'buy_buttons': [],
+            'subtitle_label': subtitle_label,
+            'scrollable_frame': scrollable_frame
+        }
+        
+        # Afficher chaque phrase
+        for idx, phrase in enumerate(self.easter_messages):
+            phrase_frame = tk.Frame(scrollable_frame, bg="#16213e", padx=10, pady=8)
+            phrase_frame.pack(fill=tk.X, pady=3, padx=5)
+            
+            # Numéro de la phrase
+            num_label = tk.Label(
+                phrase_frame,
+                text=f"#{idx + 1}",
+                font=("Arial", 9, "bold"),
+                bg="#16213e",
+                fg="#6b7280",
+                width=4
+            )
+            num_label.pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Texte de la phrase (masqué ou visible)
+            is_purchased = idx in self.purchased_phrases
+            
+            if is_purchased:
+                display_text = phrase
+                text_color = "#ffffff"
+            else:
+                # Masquer le texte
+                display_text = "🔒 " + "•" * min(len(phrase) // 2, 40) + " [PHRASE SECRÈTE]"
+                text_color = "#6b7280"
+            
+            phrase_label = tk.Label(
+                phrase_frame,
+                text=display_text,
+                font=("Arial", 9),
+                bg="#16213e",
+                fg=text_color,
+                wraplength=450,
+                justify=tk.LEFT,
+                anchor="w"
+            )
+            phrase_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            
+            # Bouton d'achat (si non acheté)
+            if not is_purchased:
+                buy_btn = tk.Button(
+                    phrase_frame,
+                    text="🔓 115💰",
+                    command=lambda i=idx: self.purchase_phrase(i),
+                    bg="#059669",
+                    fg="white",
+                    font=("Arial", 9, "bold"),
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=10,
+                    pady=3,
+                    activebackground="#047857",
+                    borderwidth=0
+                )
+                buy_btn.pack(side=tk.RIGHT, padx=(10, 0))
+                
+                # Hover effect
+                buy_btn.bind("<Enter>", lambda e, b=buy_btn: b.config(bg="#047857"))
+                buy_btn.bind("<Leave>", lambda e, b=buy_btn: b.config(bg="#059669"))
+                
+                self.inventory_state['buy_buttons'].append((idx, buy_btn, phrase_frame, phrase_label))
+            else:
+                # Badge "Débloqué"
+                unlocked_badge = tk.Label(
+                    phrase_frame,
+                    text="✅",
+                    font=("Arial", 10),
+                    bg="#16213e",
+                    fg="#00ff88"
+                )
+                unlocked_badge.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        # Bouton Fermer
+        close_btn = tk.Button(
+            main_frame,
+            text="✖ Fermer",
+            command=lambda: self.close_inventory(inventory_popup),
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=30,
+            pady=10,
+            activebackground="#4b5563",
+            borderwidth=0
+        )
+        close_btn.pack(pady=(15, 0))
+        
+        # Unbind mousewheel when closing
+        inventory_popup.protocol("WM_DELETE_WINDOW", lambda: self.close_inventory(inventory_popup))
+    
+    def close_inventory(self, popup):
+        """Fermer l'inventaire et nettoyer les bindings"""
+        try:
+            popup.unbind_all("<MouseWheel>")
+        except:
+            pass
+        popup.destroy()
+    
+    def purchase_phrase(self, phrase_idx):
+        """Acheter une phrase avec les crédits du casino"""
+        cost = 115
+        
+        # Vérifier les crédits
+        if self.casino_state['credits'] < cost:
+            self.play_sound('error')
+            messagebox.showwarning(
+                "Crédits insuffisants",
+                f"Vous avez besoin de {cost} crédits pour acheter cette phrase.\n"
+                f"Crédits actuels: {self.casino_state['credits']}"
+            )
+            return
+        
+        # Déduire les crédits
+        self.casino_state['credits'] -= cost
+        self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+        
+        # Marquer la phrase comme achetée
+        self.purchased_phrases.add(phrase_idx)
+        self.save_purchased_phrases()
+        
+        # Jouer le son d'achat
+        self.play_sound('purchase')
+        
+        # Mettre à jour l'affichage dans l'inventaire
+        phrase_text = self.easter_messages[phrase_idx]
+        
+        # Trouver et mettre à jour le bouton/label correspondant
+        for idx, buy_btn, phrase_frame, phrase_label in self.inventory_state['buy_buttons']:
+            if idx == phrase_idx:
+                # Supprimer le bouton d'achat
+                buy_btn.destroy()
+                
+                # Mettre à jour le texte de la phrase
+                phrase_label.config(
+                    text=phrase_text,
+                    fg="#ffffff"
+                )
+                
+                # Ajouter le badge débloqué
+                unlocked_badge = tk.Label(
+                    phrase_frame,
+                    text="✅",
+                    font=("Arial", 10),
+                    bg="#16213e",
+                    fg="#00ff88"
+                )
+                unlocked_badge.pack(side=tk.RIGHT, padx=(10, 0))
+                break
+        
+        # Mettre à jour le compteur
+        total_phrases = len(self.easter_messages)
+        unlocked_count = len(self.purchased_phrases)
+        self.inventory_state['subtitle_label'].config(
+            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 115 crédits par phrase"
+        )
+        
+        # Mettre à jour le label dans le casino
+        if 'phrases_label' in self.casino_state:
+            self.casino_state['phrases_label'].config(
+                text=f"📜 Phrases débloquées: {unlocked_count}/{total_phrases} (115 crédits/phrase)"
+            )
     
     def show_missing_photos_alert(self, missing_count):
         """Afficher une alerte pour les photos manquantes (21ko)"""
@@ -1193,7 +2003,7 @@ class TrombinoscopeApp:
         )
         title_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Logo Psyduck décoratif dans le header
+        # Logo Psyduck décoratif dans le header - cliquable pour ouvrir le casino
         try:
             psyduck_path = os.path.join(os.path.dirname(__file__), "assets", "psyduck.png")
             psyduck_img = Image.open(psyduck_path)
@@ -1203,9 +2013,12 @@ class TrombinoscopeApp:
             psyduck_label = tk.Label(
                 title_container,
                 image=self.psyduck_photo,
-                bg=self.color_blue
+                bg=self.color_blue,
+                cursor="hand2"
             )
             psyduck_label.pack(side=tk.LEFT)
+            # Clic pour ouvrir le jeu de casino
+            psyduck_label.bind("<Button-1>", lambda e: self.show_casino_game())
         except Exception as e:
             print(f"Erreur chargement psyduck: {e}")
         
