@@ -4,6 +4,7 @@
 Application de Génération de Trombinoscope
 Lycée Toulouse Lautrec
 Version 2.0 - Corrigée par Thibaud DIDIER
+Version 2.5 - Casino Animé Edition
 """
 
 import os
@@ -22,6 +23,7 @@ from datetime import datetime
 import random
 import json
 import threading
+import math
 
 # Tentative d'importer pygame pour les sons (optionnel)
 try:
@@ -217,22 +219,32 @@ class TrombinoscopeApp:
         about_menu.add_command(label="À propos de l'application", command=self.show_about)
     
     def load_purchased_phrases(self):
-        """Charger les phrases achetées depuis le fichier de sauvegarde"""
+        """Charger les phrases achetées et les crédits depuis le fichier de sauvegarde"""
         try:
             if os.path.exists(self.SAVE_FILE):
                 with open(self.SAVE_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                    # Charger aussi les crédits sauvegardés
+                    self.saved_credits = data.get('casino_credits', 100)
                     return set(data.get('purchased_phrases', []))
         except Exception as e:
             print(f"Erreur chargement sauvegarde: {e}")
+        self.saved_credits = 100  # Valeur par défaut
         return set()
     
     def save_purchased_phrases(self):
-        """Sauvegarder les phrases achetées dans le fichier"""
+        """Sauvegarder les phrases achetées et les crédits dans le fichier"""
         try:
-            data = {'purchased_phrases': list(self.purchased_phrases)}
+            # Récupérer les crédits actuels du casino si disponible
+            credits = getattr(self, 'casino_state', {}).get('credits', self.saved_credits)
+            
+            data = {
+                'purchased_phrases': list(self.purchased_phrases),
+                'casino_credits': credits
+            }
             with open(self.SAVE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"💾 Sauvegarde: {credits} crédits")
         except Exception as e:
             print(f"Erreur sauvegarde: {e}")
     
@@ -767,32 +779,46 @@ class TrombinoscopeApp:
         self.game_state['popup'].destroy()
     
     def show_casino_game(self):
-        """Afficher le jeu de casino - Machine à sous Lautrec Game Corner"""
+        """Afficher le jeu de casino - Machine à sous Lautrec Game Corner ANIMÉ"""
         # Créer une fenêtre popup pour le casino
         casino_popup = tk.Toplevel(self.root)
         casino_popup.title("🎰 Lautrec Game Corner - Machine à Sous")
-        casino_popup.geometry("550x750")
-        casino_popup.configure(bg="#1a1a2e")
+        casino_popup.geometry("650x850")
+        casino_popup.configure(bg="#0a0a1e")
         casino_popup.resizable(False, False)
         
         # Centrer la fenêtre
         casino_popup.transient(self.root)
         casino_popup.grab_set()
         
-        # Variables du casino
+        # Variables du casino (étendues pour les animations)
         self.casino_state = {
             'popup': casino_popup,
-            'credits': 100,
+            'credits': getattr(self, 'saved_credits', 100),  # Charger les crédits sauvegardés
             'payout': 0,
             'spinning': False,
             'reel_labels': [],
+            'reel_canvases': [],  # Canvas pour effets visuels
             'credit_label': None,
             'payout_label': None,
             'result_label': None,
             'spin_btn': None,
             'symbol_images': {},
-            'reel_values': [0, 0, 0],  # Index des symboles pour chaque rouleau
-            'spin_timers': [None, None, None]  # Timers pour l'animation
+            'reel_values': [0, 0, 0],
+            'spin_timers': [None, None, None],
+            'particles': [],  # Particules pour effets
+            'glow_active': False,
+            'shake_offset': [0, 0],
+            'main_frame': None,
+            'title_label': None,
+            'animation_canvas': None,  # Canvas principal pour particules
+            'reel_frames': [],
+            'neon_pulse': 0,  # Pour effet néon pulsant
+            # Nouveaux pour rouleaux verticaux
+            'reel_strips': [],  # Liste des symboles pour chaque rouleau
+            'reel_offsets': [0.0, 0.0, 0.0],  # Position de scroll verticale
+            'reel_speeds': [0.0, 0.0, 0.0],  # Vitesse de scroll
+            'reel_target_positions': [0, 0, 0],  # Position cible finale
         }
         
         # Liste des symboles du casino avec leurs valeurs
@@ -817,6 +843,13 @@ class TrombinoscopeApp:
             except Exception as e:
                 print(f"Erreur chargement symbole {symbol['name']}: {e}")
         
+        # Créer les "strips" de symboles pour chaque rouleau (répétition pour loop infini)
+        for i in range(3):
+            # Mélanger les symboles pour chaque rouleau
+            strip = list(range(len(self.casino_symbols))) * 3  # 3 répétitions
+            random.shuffle(strip)
+            self.casino_state['reel_strips'].append(strip)
+        
         # Charger l'image de fond de la machine
         try:
             gamecorner_path = os.path.join(os.path.dirname(__file__), "assets", "gamecorner.png")
@@ -826,138 +859,195 @@ class TrombinoscopeApp:
         except Exception as e:
             print(f"Erreur chargement gamecorner: {e}")
         
-        # Frame principale
-        main_frame = tk.Frame(casino_popup, bg="#1a1a2e", padx=20, pady=15)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Canvas principal pour les effets de particules
+        self.casino_state['animation_canvas'] = tk.Canvas(
+            casino_popup,
+            width=650,
+            height=850,
+            bg="#0a0a1e",
+            highlightthickness=0
+        )
+        self.casino_state['animation_canvas'].place(x=0, y=0)
         
-        # Titre
+        # Frame principale (par-dessus le canvas)
+        main_frame = tk.Frame(casino_popup, bg="#0a0a1e", padx=20, pady=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.casino_state['main_frame'] = main_frame
+        
+        # Titre avec effet néon pulsant
         title_label = tk.Label(
             main_frame,
-            text="🎰 Lautrec Game Corner 🎰",
-            font=("Arial", 18, "bold"),
-            bg="#1a1a2e",
+            text="🎰 LAUTREC GAME CORNER 🎰",
+            font=("Arial", 20, "bold"),
+            bg="#0a0a1e",
             fg="#ffd700"
         )
         title_label.pack(pady=(0, 10))
+        self.casino_state['title_label'] = title_label
         
-        # Frame pour afficher les crédits et payout
-        score_frame = tk.Frame(main_frame, bg="#16213e", padx=20, pady=10)
+        # Démarrer l'animation du titre néon
+        self.animate_neon_title()
+        
+        # Frame pour afficher les crédits et payout avec style amélioré
+        score_frame = tk.Frame(main_frame, bg="#1a1a3e", padx=20, pady=12, 
+                              highlightbackground="#ffd700", highlightthickness=2)
         score_frame.pack(pady=(5, 15), fill=tk.X)
         
-        credits_container = tk.Frame(score_frame, bg="#16213e")
+        credits_container = tk.Frame(score_frame, bg="#1a1a3e")
         credits_container.pack(side=tk.LEFT, expand=True)
         
         tk.Label(
             credits_container,
-            text="CRÉDITS",
-            font=("Arial", 10, "bold"),
-            bg="#16213e",
-            fg="#a0a0a0"
+            text="💰 CRÉDITS",
+            font=("Arial", 11, "bold"),
+            bg="#1a1a3e",
+            fg="#00ff88"
         ).pack()
         
         self.casino_state['credit_label'] = tk.Label(
             credits_container,
             text=str(self.casino_state['credits']),
-            font=("Arial", 20, "bold"),
-            bg="#16213e",
+            font=("Arial", 24, "bold"),
+            bg="#1a1a3e",
             fg="#00ff88"
         )
         self.casino_state['credit_label'].pack()
         
-        payout_container = tk.Frame(score_frame, bg="#16213e")
+        payout_container = tk.Frame(score_frame, bg="#1a1a3e")
         payout_container.pack(side=tk.RIGHT, expand=True)
         
         tk.Label(
             payout_container,
-            text="GAIN",
-            font=("Arial", 10, "bold"),
-            bg="#16213e",
-            fg="#a0a0a0"
+            text="🏆 GAIN",
+            font=("Arial", 11, "bold"),
+            bg="#1a1a3e",
+            fg="#ffd700"
         ).pack()
         
         self.casino_state['payout_label'] = tk.Label(
             payout_container,
             text=str(self.casino_state['payout']),
-            font=("Arial", 20, "bold"),
-            bg="#16213e",
+            font=("Arial", 24, "bold"),
+            bg="#1a1a3e",
             fg="#ffd700"
         )
         self.casino_state['payout_label'].pack()
         
-        # Frame pour les rouleaux
-        reels_outer_frame = tk.Frame(main_frame, bg="#8B4513", padx=10, pady=10)
-        reels_outer_frame.pack(pady=10)
+        # Frame pour les rouleaux avec effets améliorés
+        reels_outer_frame = tk.Frame(main_frame, bg="#8B4513", padx=12, pady=12,
+                                     relief=tk.RIDGE, borderwidth=4)
+        reels_outer_frame.pack(pady=15)
         
-        reels_frame = tk.Frame(reels_outer_frame, bg="#2d2d2d")
+        # Sous-titre animé pour les rouleaux
+        reel_title = tk.Label(
+            reels_outer_frame,
+            text="═══ ROULEAUX MAGIQUES ═══",
+            font=("Courier", 10, "bold"),
+            bg="#8B4513",
+            fg="#ffd700"
+        )
+        reel_title.pack(pady=(0, 8))
+        
+        reels_frame = tk.Frame(reels_outer_frame, bg="#1a1a1a", padx=10, pady=10)
         reels_frame.pack()
         
-        # Créer les 3 rouleaux
+        # Créer les 3 rouleaux avec Canvas pour animations VERTICALES
         for i in range(3):
-            reel_container = tk.Frame(reels_frame, bg="#1a1a1a", padx=5, pady=5)
-            reel_container.pack(side=tk.LEFT, padx=5)
+            reel_container = tk.Frame(reels_frame, bg="#000000", 
+                                     relief=tk.GROOVE, borderwidth=4)
+            reel_container.pack(side=tk.LEFT, padx=8)
+            self.casino_state['reel_frames'].append(reel_container)
             
-            reel_label = tk.Label(
+            # Canvas pour le rouleau vertical (hauteur 3x pour afficher 3 symboles)
+            reel_canvas = tk.Canvas(
                 reel_container,
+                width=90,
+                height=210,  # 70px par symbole * 3
                 bg="#ffffff",
-                width=80,
-                height=80,
-                relief=tk.SUNKEN,
-                borderwidth=3
+                highlightthickness=0
             )
-            reel_label.pack()
+            reel_canvas.pack()
+            self.casino_state['reel_canvases'].append(reel_canvas)
             
-            # Initialiser avec un symbole aléatoire
-            initial_symbol = random.choice(self.casino_symbols)
-            if initial_symbol['name'] in self.casino_state['symbol_images']:
-                reel_label.config(image=self.casino_state['symbol_images'][initial_symbol['name']])
-            self.casino_state['reel_values'][i] = self.casino_symbols.index(initial_symbol)
-            self.casino_state['reel_labels'].append(reel_label)
+            # Dessiner les lignes de séparation entre symboles
+            reel_canvas.create_line(0, 70, 90, 70, fill="#cccccc", width=1)
+            reel_canvas.create_line(0, 140, 90, 140, fill="#cccccc", width=1)
+            
+            # Encadrer le symbole du milieu (celui qui compte)
+            reel_canvas.create_rectangle(
+                2, 72, 88, 138,
+                outline="#ff0040",
+                width=3
+            )
+            
+            # Initialiser avec des symboles aléatoires
+            initial_idx = random.randint(0, len(self.casino_symbols) - 1)
+            self.casino_state['reel_values'][i] = initial_idx
+            self.casino_state['reel_offsets'][i] = 0.0
+            
+        # Dessiner l'état initial des rouleaux
+        self.draw_all_reels()
         
-        # Label pour le résultat
+        # Label pour le résultat avec style amélioré
         self.casino_state['result_label'] = tk.Label(
             main_frame,
-            text="Appuyez sur SPIN pour jouer ! (Coût: 5 crédits)",
-            font=("Arial", 11),
-            bg="#1a1a2e",
-            fg="#ffffff",
-            wraplength=400
+            text="✨ Appuyez sur SPIN pour jouer ! ✨\n(Coût: 5 crédits)",
+            font=("Arial", 12, "bold"),
+            bg="#0a0a1e",
+            fg="#00ff88",
+            wraplength=500
         )
-        self.casino_state['result_label'].pack(pady=15)
+        self.casino_state['result_label'].pack(pady=20)
         
         # Frame pour les boutons
-        btn_frame = tk.Frame(main_frame, bg="#1a1a2e")
-        btn_frame.pack(pady=10)
+        btn_frame = tk.Frame(main_frame, bg="#0a0a1e")
+        btn_frame.pack(pady=15)
         
-        # Bouton SPIN
+        # Bouton SPIN avec effet 3D et animation
+        spin_btn_container = tk.Frame(btn_frame, bg="#0a0a1e")
+        spin_btn_container.pack(side=tk.LEFT, padx=10)
+        
         self.casino_state['spin_btn'] = tk.Button(
-            btn_frame,
+            spin_btn_container,
             text="🎰 SPIN !",
-            command=self.casino_spin,
-            bg="#dc2626",
+            command=self.casino_spin_animated,
+            bg="#ff0040",
             fg="white",
-            font=("Arial", 14, "bold"),
+            font=("Arial", 16, "bold"),
             cursor="hand2",
             relief=tk.RAISED,
-            padx=40,
-            pady=15,
-            activebackground="#b91c1c",
-            borderwidth=3
+            padx=50,
+            pady=20,
+            activebackground="#cc0030",
+            borderwidth=5
         )
-        self.casino_state['spin_btn'].pack(side=tk.LEFT, padx=10)
+        self.casino_state['spin_btn'].pack()
+        
+        # Effet hover pour le bouton SPIN
+        def spin_hover_enter(e):
+            self.casino_state['spin_btn'].config(bg="#ff3366", relief=tk.RAISED, borderwidth=6)
+        def spin_hover_leave(e):
+            self.casino_state['spin_btn'].config(bg="#ff0040", relief=tk.RAISED, borderwidth=5)
+        
+        self.casino_state['spin_btn'].bind("<Enter>", spin_hover_enter)
+        self.casino_state['spin_btn'].bind("<Leave>", spin_hover_leave)
+        
+        # Animation pulsante du bouton SPIN
+        self.pulse_spin_button()
         
         # Bouton Fermer
         close_btn = tk.Button(
             btn_frame,
             text="✖ Quitter",
             command=self.close_casino_game,
-            bg="#6b7280",
+            bg="#4b5563",
             fg="white",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
-            padx=25,
+            padx=20,
             pady=12,
-            activebackground="#4b5563",
+            activebackground="#374151",
             borderwidth=0
         )
         close_btn.pack(side=tk.LEFT, padx=10)
@@ -969,7 +1059,7 @@ class TrombinoscopeApp:
             command=self.show_phrase_inventory,
             bg="#8b5cf6",
             fg="white",
-            font=("Arial", 12, "bold"),
+            font=("Arial", 11, "bold"),
             cursor="hand2",
             relief=tk.FLAT,
             padx=20,
@@ -979,13 +1069,20 @@ class TrombinoscopeApp:
         )
         inventory_btn.pack(side=tk.LEFT, padx=10)
         
-        # Effets hover pour le bouton inventaire
+        # Effets hover
         def inv_on_enter(e):
             inventory_btn.config(bg="#7c3aed")
         def inv_on_leave(e):
             inventory_btn.config(bg="#8b5cf6")
         inventory_btn.bind("<Enter>", inv_on_enter)
         inventory_btn.bind("<Leave>", inv_on_leave)
+        
+        def close_on_enter(e):
+            close_btn.config(bg="#374151")
+        def close_on_leave(e):
+            close_btn.config(bg="#4b5563")
+        close_btn.bind("<Enter>", close_on_enter)
+        close_btn.bind("<Leave>", close_on_leave)
         
         # Compteur de phrases débloquées
         total_phrases = len(self.easter_messages)
@@ -995,39 +1092,348 @@ class TrombinoscopeApp:
             main_frame,
             text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (115 crédits/phrase)",
             font=("Arial", 10),
-            bg="#1a1a2e",
+            bg="#0a0a1e",
             fg="#a78bfa"
         )
         phrases_label.pack(pady=(5, 10))
         self.casino_state['phrases_label'] = phrases_label
         
-        # Table des gains
+        # Table des gains avec style amélioré
         paytable_frame = tk.LabelFrame(
             main_frame,
-            text="📋 Table des gains",
-            font=("Arial", 10, "bold"),
-            bg="#1a1a2e",
+            text="🏆 TABLE DES GAINS 🏆",
+            font=("Arial", 11, "bold"),
+            bg="#0a0a1e",
             fg="#ffd700",
-            padx=10,
-            pady=5
+            padx=15,
+            pady=8,
+            highlightbackground="#ffd700",
+            highlightthickness=1
         )
-        paytable_frame.pack(pady=5, fill=tk.X)
+        paytable_frame.pack(pady=10, fill=tk.X)
         
-        paytable_text = "777 = 1000 | Pikachu x3 = 500 | Psyduck x3 = 300 | 2 identiques = valeur/3"
+        paytable_text = "777 = 1000 💰 | Pikachu x3 = 500 💰 | Psyduck x3 = 300 💰\n2 identiques = valeur/3"
         tk.Label(
             paytable_frame,
             text=paytable_text,
-            font=("Arial", 9),
-            bg="#1a1a2e",
-            fg="#a0a0a0",
-            wraplength=450
+            font=("Arial", 10, "bold"),
+            bg="#0a0a1e",
+            fg="#00ff88",
+            wraplength=550
         ).pack()
         
         # Fermer proprement si la fenêtre est fermée
         casino_popup.protocol("WM_DELETE_WINDOW", self.close_casino_game)
     
+    def draw_all_reels(self):
+        """Dessiner tous les rouleaux avec leurs symboles visibles"""
+        for i in range(3):
+            self.draw_reel(i)
+    
+    def draw_reel(self, reel_idx):
+        """Dessiner un rouleau avec 3 symboles visibles (effet de défilement)"""
+        canvas = self.casino_state['reel_canvases'][reel_idx]
+        strip = self.casino_state['reel_strips'][reel_idx]
+        offset = self.casino_state['reel_offsets'][reel_idx]
+        
+        # Nettoyer le canvas (sauf les lignes et le cadre)
+        canvas.delete("symbol")
+        
+        # Position de base dans le strip
+        strip_len = len(strip)
+        base_pos = int(offset) % strip_len
+        
+        # Dessiner 4 symboles (pour couvrir toute la hauteur avec le scroll)
+        for slot in range(4):
+            symbol_idx = strip[(base_pos + slot) % strip_len]
+            symbol = self.casino_symbols[symbol_idx]
+            
+            # Position Y avec l'offset de scroll
+            y_pos = (slot * 70) - (offset % 70)
+            
+            # Dessiner le symbole s'il est dans la zone visible
+            if -70 <= y_pos <= 210:
+                if symbol['name'] in self.casino_state['symbol_images']:
+                    img = self.casino_state['symbol_images'][symbol['name']]
+                    canvas.create_image(
+                        45, y_pos + 35,
+                        image=img,
+                        tags="symbol"
+                    )
+        
+        # Redessiner le cadre rouge du milieu (au-dessus)
+        canvas.delete("frame")
+        canvas.create_rectangle(
+            2, 72, 88, 138,
+            outline="#ff0040",
+            width=3,
+            tags="frame"
+        )
+    
+    def animate_neon_title(self):
+        """Animation de pulsation néon pour le titre"""
+        if not hasattr(self, 'casino_state') or 'title_label' not in self.casino_state:
+            return
+        
+        try:
+            # Calculer la couleur avec effet de pulsation
+            import math
+            self.casino_state['neon_pulse'] += 0.15
+            brightness = int(200 + 55 * math.sin(self.casino_state['neon_pulse']))
+            color = f'#{brightness:02x}d700'
+            
+            self.casino_state['title_label'].config(fg=color)
+            
+            # Continuer l'animation
+            if self.casino_state.get('popup') and self.casino_state['popup'].winfo_exists():
+                self.casino_state['popup'].after(50, self.animate_neon_title)
+        except:
+            pass
+    
+    def pulse_spin_button(self):
+        """Animation de pulsation du bouton SPIN"""
+        if not hasattr(self, 'casino_state') or 'spin_btn' not in self.casino_state:
+            return
+        
+        try:
+            if not self.casino_state.get('spinning', False):
+                # Effet de pulsation quand le bouton est disponible
+                import math
+                pulse = math.sin(self.casino_state.get('neon_pulse', 0) * 1.5)
+                scale = 1.0 + pulse * 0.02
+                
+                # Alterner légèrement la taille via le padding
+                if pulse > 0:
+                    self.casino_state['spin_btn'].config(padx=52, pady=21)
+                else:
+                    self.casino_state['spin_btn'].config(padx=50, pady=20)
+            
+            # Continuer l'animation
+            if self.casino_state.get('popup') and self.casino_state['popup'].winfo_exists():
+                self.casino_state['popup'].after(100, self.pulse_spin_button)
+        except:
+            pass
+    
+    def create_particle(self, x, y, color, size=4, vx=None, vy=None):
+        """Créer une particule pour les effets visuels"""
+        import math
+        import random as rand
+        
+        if vx is None:
+            vx = rand.uniform(-3, 3)
+        if vy is None:
+            vy = rand.uniform(-5, -2)
+        
+        particle = {
+            'x': x,
+            'y': y,
+            'vx': vx,
+            'vy': vy,
+            'color': color,
+            'size': size,
+            'life': 50,
+            'id': None
+        }
+        
+        # Dessiner la particule
+        canvas = self.casino_state['animation_canvas']
+        particle['id'] = canvas.create_oval(
+            x - size, y - size, x + size, y + size,
+            fill=color, outline=color
+        )
+        
+        self.casino_state['particles'].append(particle)
+    
+    def update_particles(self):
+        """Mettre à jour et animer les particules"""
+        if not hasattr(self, 'casino_state') or 'particles' not in self.casino_state:
+            return
+        
+        try:
+            canvas = self.casino_state['animation_canvas']
+            particles_to_remove = []
+            
+            for particle in self.casino_state['particles']:
+                # Mise à jour physique
+                particle['vy'] += 0.2  # Gravité
+                particle['x'] += particle['vx']
+                particle['y'] += particle['vy']
+                particle['life'] -= 1
+                
+                # Mettre à jour la position
+                if particle['id']:
+                    canvas.coords(
+                        particle['id'],
+                        particle['x'] - particle['size'],
+                        particle['y'] - particle['size'],
+                        particle['x'] + particle['size'],
+                        particle['y'] + particle['size']
+                    )
+                    
+                    # Fading
+                    alpha = particle['life'] / 50.0
+                    if alpha < 0.3:
+                        canvas.itemconfig(particle['id'], state='hidden')
+                
+                # Marquer pour suppression si morte
+                if particle['life'] <= 0:
+                    particles_to_remove.append(particle)
+            
+            # Nettoyer les particules mortes
+            for particle in particles_to_remove:
+                if particle['id']:
+                    canvas.delete(particle['id'])
+                self.casino_state['particles'].remove(particle)
+            
+            # Continuer l'animation
+            if self.casino_state.get('popup') and self.casino_state['popup'].winfo_exists():
+                self.casino_state['popup'].after(30, self.update_particles)
+        except:
+            pass
+    
+    def shake_screen(self, intensity=10, duration=20):
+        """Effet de tremblement de l'écran"""
+        import random as rand
+        
+        def _shake(count):
+            if count <= 0 or not self.casino_state.get('popup'):
+                # Remettre en position normale
+                self.casino_state['main_frame'].place(x=0, y=0)
+                return
+            
+            # Déplacement aléatoire
+            offset_x = rand.randint(-intensity, intensity)
+            offset_y = rand.randint(-intensity, intensity)
+            
+            # Diminuer l'intensité progressivement
+            current_intensity = int(intensity * (count / duration))
+            offset_x = rand.randint(-current_intensity, current_intensity)
+            offset_y = rand.randint(-current_intensity, current_intensity)
+            
+            self.casino_state['main_frame'].place(x=offset_x, y=offset_y)
+            
+            # Continuer le shake
+            self.casino_state['popup'].after(30, lambda: _shake(count - 1))
+        
+        _shake(duration)
+    
+    def flash_screen(self, color="#ffffff", times=3):
+        """Effet de flash d'écran"""
+        def _flash(count):
+            if count <= 0 or not self.casino_state.get('popup'):
+                self.casino_state['animation_canvas'].config(bg="#0a0a1e")
+                return
+            
+            # Alterner entre la couleur et le fond normal
+            if count % 2 == 0:
+                self.casino_state['animation_canvas'].config(bg=color)
+            else:
+                self.casino_state['animation_canvas'].config(bg="#0a0a1e")
+            
+            self.casino_state['popup'].after(80, lambda: _flash(count - 1))
+        
+        _flash(times * 2)
+    
+    def animate_counter(self, label, start, end, duration=500, prefix="", color_start="#ffffff", color_end=None):
+        """Animer un compteur de nombre"""
+        if color_end is None:
+            color_end = color_start
+        
+        import math
+        steps = 20
+        delay = duration // steps
+        
+        def _update(step):
+            if step > steps or not self.casino_state.get('popup'):
+                label.config(text=f"{prefix}{end}", fg=color_end)
+                return
+            
+            # Easing function (ease-out)
+            progress = step / steps
+            eased = 1 - math.pow(1 - progress, 3)
+            current = int(start + (end - start) * eased)
+            
+            # Interpolation de couleur
+            if color_start != color_end and step % 2 == 0:
+                label.config(fg=color_end if step > steps // 2 else color_start)
+            
+            label.config(text=f"{prefix}{current}")
+            self.casino_state['popup'].after(delay, lambda: _update(step + 1))
+        
+        _update(0)
+    
+    def create_win_particles(self, x, y, count=30):
+        """Créer des particules de victoire"""
+        import random as rand
+        colors = ["#ffd700", "#ffed4e", "#ff0", "#fff", "#00ff88"]
+        
+        for _ in range(count):
+            angle = rand.uniform(0, 6.28)  # 2*pi
+            speed = rand.uniform(3, 8)
+            vx = speed * math.cos(angle)
+            vy = speed * math.sin(angle) - rand.uniform(2, 4)
+            size = rand.randint(3, 7)
+            color = rand.choice(colors)
+            
+            self.create_particle(x, y, color, size, vx, vy)
+    
+    def glow_reel(self, reel_idx, color="#ffd700"):
+        """Effet de lueur sur un rouleau gagnant (version verticale)"""
+        canvas = self.casino_state['reel_canvases'][reel_idx]
+        
+        def _glow(step):
+            if step <= 0 or not self.casino_state.get('popup'):
+                canvas.config(bg="#ffffff")
+                # Redessiner le cadre rouge
+                canvas.delete("frame")
+                canvas.create_rectangle(
+                    2, 72, 88, 138,
+                    outline="#ff0040",
+                    width=3,
+                    tags="frame"
+                )
+                return
+            
+            # Alterner entre la couleur glow et blanc
+            if step % 2 == 0:
+                canvas.config(bg=color)
+                # Cadre de la couleur glow aussi
+                canvas.delete("frame")
+                canvas.create_rectangle(
+                    2, 72, 88, 138,
+                    outline=color,
+                    width=4,
+                    tags="frame"
+                )
+            else:
+                canvas.config(bg="#ffffff")
+                canvas.delete("frame")
+                canvas.create_rectangle(
+                    2, 72, 88, 138,
+                    outline="#ff0040",
+                    width=3,
+                    tags="frame"
+                )
+            
+            self.casino_state['popup'].after(100, lambda: _glow(step - 1))
+        
+        _glow(8)
+    
+    def casino_spin_animated(self):
+        """Version animée de casino_spin avec effets"""
+        # Effet de pression sur le bouton
+        btn = self.casino_state['spin_btn']
+        btn.config(relief=tk.SUNKEN, borderwidth=3)
+        self.casino_state['popup'].after(100, lambda: btn.config(relief=tk.RAISED, borderwidth=5))
+        
+        # Flash rapide
+        self.flash_screen("#ff0040", times=1)
+        
+        # Lancer le spin normal après l'effet
+        self.casino_state['popup'].after(150, self.casino_spin)
+    
     def casino_spin(self):
-        """Lancer les rouleaux du casino"""
+        """Lancer les rouleaux du casino avec défilement vertical"""
         if self.casino_state['spinning']:
             return
         
@@ -1043,61 +1449,120 @@ class TrombinoscopeApp:
         # Jouer le son de spin
         self.play_sound('spin')
         
-        # Déduire les crédits
+        # Déduire les crédits avec animation
+        old_credits = self.casino_state['credits']
         self.casino_state['credits'] -= 5
-        self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+        self.animate_counter(
+            self.casino_state['credit_label'],
+            old_credits,
+            self.casino_state['credits'],
+            duration=300,
+            color_start="#00ff88",
+            color_end="#00ff88"
+        )
+        
         self.casino_state['payout'] = 0
         self.casino_state['payout_label'].config(text="0")
-        self.casino_state['result_label'].config(text="🎰 Les rouleaux tournent...", fg="#ffffff")
+        self.casino_state['result_label'].config(
+            text="🎰 Les rouleaux tournent...",
+            fg="#ffffff",
+            font=("Arial", 11, "bold")
+        )
         self.casino_state['spinning'] = True
         self.casino_state['spin_btn'].config(state=tk.DISABLED)
         
-        # Animer les rouleaux avec des délais différents
-        # Rouleau 1: s'arrête en premier (après 1 seconde)
-        # Rouleau 2: s'arrête ensuite (après 1.5 secondes)
-        # Rouleau 3: s'arrête en dernier (après 2 secondes)
+        # Déterminer les symboles finaux pour chaque rouleau
+        final_symbols = [
+            random.randint(0, len(self.casino_symbols) - 1),
+            random.randint(0, len(self.casino_symbols) - 1),
+            random.randint(0, len(self.casino_symbols) - 1)
+        ]
+        self.casino_state['reel_values'] = final_symbols
         
-        self.spin_count = [15, 20, 25]  # Nombre de rotations pour chaque rouleau
-        self.current_spin = [0, 0, 0]
-        self.reels_stopped = [False, False, False]  # Pour tracker les sons d'arrêt
+        # Configuration du spin pour chaque rouleau
+        # Chaque rouleau tourne différemment et s'arrête à des moments différents
+        base_rotations = 20  # Nombre de symboles à faire défiler
         
-        # Démarrer l'animation pour chaque rouleau
         for i in range(3):
-            self.animate_reel(i)
+            # Nombre de rotations pour ce rouleau (augmente pour chaque rouleau)
+            rotations = base_rotations + (i * 8)
+            
+            # Position cible finale (alignée sur le symbole gagnant dans le strip)
+            # On cherche où se trouve le symbole final dans notre strip
+            target_symbol = final_symbols[i]
+            strip = self.casino_state['reel_strips'][i]
+            
+            # Trouver la première occurrence du symbole cible après la position actuelle
+            current_pos = int(self.casino_state['reel_offsets'][i])
+            for j in range(len(strip)):
+                check_pos = (current_pos + j) % len(strip)
+                if strip[check_pos] == target_symbol:
+                    target_offset = current_pos + j + rotations
+                    break
+            
+            self.casino_state['reel_target_positions'][i] = target_offset
+            self.casino_state['reel_speeds'][i] = 8.0  # Vitesse initiale
+        
+        # Démarrer l'animation des rouleaux
+        self.animate_vertical_reels()
     
-    def animate_reel(self, reel_idx):
-        """Animer un rouleau spécifique"""
-        if self.current_spin[reel_idx] < self.spin_count[reel_idx]:
-            # Changer le symbole aléatoirement
-            new_symbol_idx = random.randint(0, len(self.casino_symbols) - 1)
-            symbol = self.casino_symbols[new_symbol_idx]
+    def animate_vertical_reels(self):
+        """Animer les rouleaux avec défilement vertical et ralentissement progressif"""
+        if not self.casino_state.get('spinning'):
+            return
+        
+        all_stopped = True
+        
+        for i in range(3):
+            current_offset = self.casino_state['reel_offsets'][i]
+            target_offset = self.casino_state['reel_target_positions'][i]
+            speed = self.casino_state['reel_speeds'][i]
             
-            if symbol['name'] in self.casino_state['symbol_images']:
-                self.casino_state['reel_labels'][reel_idx].config(
-                    image=self.casino_state['symbol_images'][symbol['name']]
-                )
+            # Distance restante
+            distance = target_offset - current_offset
             
-            self.casino_state['reel_values'][reel_idx] = new_symbol_idx
-            self.current_spin[reel_idx] += 1
-            
-            # Vitesse de rotation (ralentit vers la fin)
-            delay = 50 + (self.current_spin[reel_idx] * 3)
-            self.casino_state['spin_timers'][reel_idx] = self.casino_state['popup'].after(
-                delay, lambda idx=reel_idx: self.animate_reel(idx)
-            )
+            if distance > 0.1:  # Pas encore arrêté
+                all_stopped = False
+                
+                # Ralentissement progressif (easing)
+                if distance < 10:
+                    # Phase de ralentissement final
+                    speed = max(0.3, distance * 0.3)
+                elif distance < 20:
+                    # Phase de décélération
+                    speed = max(2.0, speed * 0.85)
+                else:
+                    # Phase de vitesse constante ou légère décélération
+                    speed = max(4.0, speed * 0.98)
+                
+                # Mettre à jour la position
+                self.casino_state['reel_offsets'][i] += speed
+                self.casino_state['reel_speeds'][i] = speed
+                
+                # S'assurer de ne pas dépasser la cible
+                if self.casino_state['reel_offsets'][i] > target_offset:
+                    self.casino_state['reel_offsets'][i] = target_offset
+                    # Son d'arrêt du rouleau
+                    self.play_sound('reel_stop')
+                
+                # Redessiner le rouleau
+                self.draw_reel(i)
+            else:
+                # Ce rouleau est arrêté, s'assurer qu'il est exactement sur la position
+                self.casino_state['reel_offsets'][i] = target_offset
+                self.draw_reel(i)
+        
+        # Continuer l'animation ou vérifier le résultat
+        if not all_stopped:
+            self.casino_state['popup'].after(16, self.animate_vertical_reels)  # ~60 FPS
         else:
-            # Ce rouleau a fini de tourner - jouer le son d'arrêt
-            if not self.reels_stopped[reel_idx]:
-                self.reels_stopped[reel_idx] = True
-                self.play_sound('reel_stop')
-            
-            # Vérifier si tous les rouleaux ont fini
-            all_done = all(self.current_spin[i] >= self.spin_count[i] for i in range(3))
-            if all_done:
-                self.check_casino_result()
+            # Tous les rouleaux sont arrêtés
+            self.casino_state['popup'].after(200, self.check_casino_result)
     
     def check_casino_result(self):
-        """Vérifier le résultat et calculer les gains"""
+        """Vérifier le résultat et calculer les gains AVEC ANIMATIONS"""
+        import math
+        
         self.casino_state['spinning'] = False
         self.casino_state['spin_btn'].config(state=tk.NORMAL)
         
@@ -1107,45 +1572,132 @@ class TrombinoscopeApp:
         
         payout = 0
         result_text = ""
+        win_type = None  # 'jackpot', 'big_win', 'win', 'near_miss', 'lose'
         
         # Vérifier les combinaisons gagnantes
         if names[0] == names[1] == names[2]:
             # 3 symboles identiques - JACKPOT!
             payout = symbols[0]['value']
             if names[0] == '7':
-                result_text = f"🎉 JACKPOT! Triple 7! +{payout} crédits!"
+                result_text = f"💎 MEGA JACKPOT! 💎\nTriple 7! +{payout} crédits!"
+                win_type = 'jackpot'
             else:
-                result_text = f"🎉 SUPER! 3x {names[0]}! +{payout} crédits!"
+                result_text = f"✨ SUPER VICTOIRE! ✨\n3x {names[0]}! +{payout} crédits!"
+                win_type = 'big_win' if payout >= 100 else 'win'
         elif names[0] == names[1] or names[1] == names[2] or names[0] == names[2]:
             # 2 symboles identiques
             if names[0] == names[1]:
                 payout = symbols[0]['value'] // 5
+                matching_reels = [0, 1]
             elif names[1] == names[2]:
                 payout = symbols[1]['value'] // 5
+                matching_reels = [1, 2]
             else:
                 payout = symbols[0]['value'] // 5
+                matching_reels = [0, 2]
             payout = max(payout, 2)
-            result_text = f"👍 2 identiques! +{payout} crédits!"
+            result_text = f"👍 Pas mal! 2 identiques!\n+{payout} crédits!"
+            win_type = 'win'
         else:
-            result_text = "😔 Pas de chance... Réessayez!"
+            # Vérifier le "near miss" (2 symboles identiques parmi les 3 qui se suivent)
+            result_text = "😔 Dommage... Réessayez!"
+            win_type = 'lose'
         
-        # Mettre à jour les gains
-        if payout > 0:
-            self.casino_state['credits'] += payout
-            self.casino_state['payout'] = payout
-            self.casino_state['payout_label'].config(text=str(payout))
-            self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
-            result_color = "#00ff88"
-            # Jouer le son de victoire
-            if payout >= 50:
-                self.play_sound('jackpot')
-            else:
-                self.play_sound('win')
+        # ANIMATIONS SELON LE TYPE DE VICTOIRE
+        if win_type == 'jackpot':
+            # JACKPOT - Animations maximales!
+            self.play_sound('jackpot')
+            
+            # 1. Shake violent de l'écran
+            self.shake_screen(intensity=15, duration=30)
+            
+            # 2. Flash d'écran doré
+            self.flash_screen("#ffd700", times=5)
+            
+            # 3. Effet glow sur TOUS les rouleaux
+            for i in range(3):
+                self.glow_reel(i, "#ffd700")
+            
+            # 4. Explosion de particules dorées
+            self.casino_state['popup'].after(200, lambda: self.create_win_particles(325, 400, count=80))
+            self.casino_state['popup'].after(400, lambda: self.create_win_particles(325, 400, count=60))
+            
+            # 5. Démarrer l'animation des particules
+            self.update_particles()
+            
+            # 6. Animation du texte de résultat (zoom effet)
+            self.animate_result_text(result_text, "#ffd700", scale_effect=True)
+            
+        elif win_type == 'big_win':
+            # Grande victoire - Animations importantes
+            self.play_sound('jackpot')
+            
+            # Shake modéré
+            self.shake_screen(intensity=10, duration=20)
+            
+            # Flash
+            self.flash_screen("#00ff88", times=3)
+            
+            # Glow sur tous les rouleaux
+            for i in range(3):
+                self.glow_reel(i, "#00ff88")
+            
+            # Particules vertes
+            self.casino_state['popup'].after(200, lambda: self.create_win_particles(325, 400, count=50))
+            self.update_particles()
+            
+            self.animate_result_text(result_text, "#00ff88", scale_effect=True)
+            
+        elif win_type == 'win':
+            # Victoire normale - Animations légères
+            self.play_sound('win')
+            
+            # Flash léger
+            self.flash_screen("#00ff88", times=2)
+            
+            # Glow sur les rouleaux gagnants si définis
+            if 'matching_reels' in locals():
+                for reel_idx in matching_reels:
+                    self.glow_reel(reel_idx, "#00ff88")
+            
+            # Quelques particules
+            self.casino_state['popup'].after(150, lambda: self.create_win_particles(325, 400, count=25))
+            self.update_particles()
+            
+            self.animate_result_text(result_text, "#00ff88")
+            
         else:
-            result_color = "#ff8888"
+            # Perte - Pas d'animations, juste le son
             self.play_sound('lose')
+            self.casino_state['result_label'].config(text=result_text, fg="#ff6b6b")
         
-        self.casino_state['result_label'].config(text=result_text, fg=result_color)
+        # Mettre à jour les gains avec animation
+        if payout > 0:
+            old_credits = self.casino_state['credits']
+            new_credits = old_credits + payout
+            
+            # Animer le compteur de crédits
+            self.animate_counter(
+                self.casino_state['credit_label'],
+                old_credits,
+                new_credits,
+                duration=800,
+                color_start="#00ff88",
+                color_end="#00ff88"
+            )
+            
+            # Animer le payout
+            self.animate_counter(
+                self.casino_state['payout_label'],
+                0,
+                payout,
+                duration=600,
+                color_start="#ffd700",
+                color_end="#ffd700"
+            )
+            
+            self.casino_state['credits'] = new_credits
+            self.casino_state['payout'] = payout
         
         # Mettre à jour le compteur de phrases
         if 'phrases_label' in self.casino_state:
@@ -1157,15 +1709,50 @@ class TrombinoscopeApp:
         
         # Vérifier si le joueur est ruiné
         if self.casino_state['credits'] < 3:
+            bonus_text = result_text + "\n\n💸 Plus assez de crédits!\n🎁 BONUS: +50 crédits!"
             self.casino_state['result_label'].config(
-                text=result_text + "\n💸 Plus assez de crédits! Bonus: +50 crédits!",
+                text=bonus_text,
                 fg="#ffd700"
             )
+            old_credits = self.casino_state['credits']
             self.casino_state['credits'] += 50
-            self.casino_state['credit_label'].config(text=str(self.casino_state['credits']))
+            
+            # Animer le bonus
+            self.casino_state['popup'].after(1500, lambda: self.animate_counter(
+                self.casino_state['credit_label'],
+                old_credits,
+                self.casino_state['credits'],
+                duration=500,
+                color_start="#ffd700",
+                color_end="#00ff88"
+            ))
+            
+            # Flash pour le bonus
+            self.casino_state['popup'].after(1500, lambda: self.flash_screen("#ffd700", times=2))
+    
+    def animate_result_text(self, text, color, scale_effect=False):
+        """Animer l'apparition du texte de résultat"""
+        label = self.casino_state['result_label']
+        
+        if scale_effect:
+            # Effet de zoom pour grandes victoires
+            sizes = [8, 10, 12, 14, 12, 11]
+            def _zoom(step):
+                if step >= len(sizes):
+                    label.config(font=("Arial", 12, "bold"), fg=color, text=text)
+                    return
+                label.config(font=("Arial", sizes[step], "bold"), fg=color, text=text)
+                self.casino_state['popup'].after(60, lambda: _zoom(step + 1))
+            _zoom(0)
+        else:
+            # Apparition simple
+            label.config(text=text, fg=color, font=("Arial", 11, "bold"))
     
     def close_casino_game(self):
-        """Fermer le jeu de casino"""
+        """Fermer le jeu de casino et sauvegarder les crédits"""
+        # Sauvegarder les crédits avant de fermer
+        self.save_purchased_phrases()
+        
         # Annuler tous les timers en cours
         for timer in self.casino_state.get('spin_timers', []):
             if timer:
