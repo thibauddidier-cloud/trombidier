@@ -1131,7 +1131,7 @@ class TrombinoscopeApp:
             self.draw_reel(i)
     
     def draw_reel(self, reel_idx):
-        """Dessiner un rouleau avec 3 symboles visibles (effet de défilement)"""
+        """Dessiner un rouleau avec 3 symboles visibles (effet de défilement vertical fluide)"""
         canvas = self.casino_state['reel_canvases'][reel_idx]
         strip = self.casino_state['reel_strips'][reel_idx]
         offset = self.casino_state['reel_offsets'][reel_idx]
@@ -1141,27 +1141,33 @@ class TrombinoscopeApp:
         
         # Position de base dans le strip
         strip_len = len(strip)
+        # Le symbole à l'index (offset) sera au centre (ligne du milieu = slot 1)
         base_pos = int(offset) % strip_len
         
-        # Dessiner 4 symboles (pour couvrir toute la hauteur avec le scroll)
-        for slot in range(4):
-            symbol_idx = strip[(base_pos + slot) % strip_len]
+        # Offset pixel pour le défilement fluide
+        pixel_offset = (offset % 1.0) * 70
+        
+        # Dessiner 5 symboles pour assurer une couverture complète pendant le scroll
+        for slot in range(-1, 4):
+            # Position dans le strip (slot 1 = centre = base_pos)
+            strip_pos = (base_pos + slot - 1) % strip_len
+            symbol_idx = strip[strip_pos]
             symbol = self.casino_symbols[symbol_idx]
             
-            # Position Y avec l'offset de scroll
-            y_pos = (slot * 70) - (offset % 70)
+            # Position Y : slot 1 (centre) est à 70px, on soustrait le pixel_offset pour défiler vers le haut
+            y_center = (slot * 70) + 35 - pixel_offset
             
             # Dessiner le symbole s'il est dans la zone visible
-            if -70 <= y_pos <= 210:
+            if -35 <= y_center <= 245:
                 if symbol['name'] in self.casino_state['symbol_images']:
                     img = self.casino_state['symbol_images'][symbol['name']]
                     canvas.create_image(
-                        45, y_pos + 35,
+                        45, y_center,
                         image=img,
                         tags="symbol"
                     )
         
-        # Redessiner le cadre rouge du milieu (au-dessus)
+        # Redessiner le cadre rouge du milieu (au-dessus des symboles)
         canvas.delete("frame")
         canvas.create_rectangle(
             2, 72, 88, 138,
@@ -1461,6 +1467,9 @@ class TrombinoscopeApp:
             color_end="#00ff88"
         )
         
+        # Sauvegarder les crédits immédiatement après déduction
+        self.save_purchased_phrases()
+        
         self.casino_state['payout'] = 0
         self.casino_state['payout_label'].config(text="0")
         self.casino_state['result_label'].config(
@@ -1491,13 +1500,18 @@ class TrombinoscopeApp:
             # On cherche où se trouve le symbole final dans notre strip
             target_symbol = final_symbols[i]
             strip = self.casino_state['reel_strips'][i]
+            strip_len = len(strip)
             
-            # Trouver la première occurrence du symbole cible après la position actuelle
+            # Trouver la première occurrence du symbole cible après avoir fait plusieurs rotations
             current_pos = int(self.casino_state['reel_offsets'][i])
-            for j in range(len(strip)):
-                check_pos = (current_pos + j) % len(strip)
+            # On veut que le symbole soit visible après 'rotations' symboles défilés
+            search_start = current_pos + rotations
+            
+            for j in range(strip_len):
+                check_pos = (search_start + j) % strip_len
                 if strip[check_pos] == target_symbol:
-                    target_offset = current_pos + j + rotations
+                    # La position cible est search_start + j (en prenant en compte le cycle)
+                    target_offset = search_start + j
                     break
             
             self.casino_state['reel_target_positions'][i] = target_offset
@@ -1507,7 +1521,7 @@ class TrombinoscopeApp:
         self.animate_vertical_reels()
     
     def animate_vertical_reels(self):
-        """Animer les rouleaux avec défilement vertical et ralentissement progressif"""
+        """Animer les rouleaux avec défilement vertical fluide et ralentissement progressif"""
         if not self.casino_state.get('spinning'):
             return
         
@@ -1521,26 +1535,29 @@ class TrombinoscopeApp:
             # Distance restante
             distance = target_offset - current_offset
             
-            if distance > 0.1:  # Pas encore arrêté
+            if distance > 0.05:  # Pas encore arrêté (seuil réduit pour précision)
                 all_stopped = False
                 
-                # Ralentissement progressif (easing)
-                if distance < 10:
-                    # Phase de ralentissement final
-                    speed = max(0.3, distance * 0.3)
-                elif distance < 20:
+                # Ralentissement progressif avec easing fluide
+                if distance < 3:
+                    # Phase finale : très lent pour bien voir l'alignement
+                    speed = max(0.08, distance * 0.15)
+                elif distance < 8:
+                    # Phase de ralentissement prononcé
+                    speed = max(0.3, distance * 0.2)
+                elif distance < 15:
                     # Phase de décélération
-                    speed = max(2.0, speed * 0.85)
+                    speed = max(1.5, speed * 0.92)
                 else:
-                    # Phase de vitesse constante ou légère décélération
-                    speed = max(4.0, speed * 0.98)
+                    # Phase de vitesse rapide
+                    speed = max(5.0, speed * 0.98)
                 
                 # Mettre à jour la position
                 self.casino_state['reel_offsets'][i] += speed
                 self.casino_state['reel_speeds'][i] = speed
                 
                 # S'assurer de ne pas dépasser la cible
-                if self.casino_state['reel_offsets'][i] > target_offset:
+                if self.casino_state['reel_offsets'][i] >= target_offset:
                     self.casino_state['reel_offsets'][i] = target_offset
                     # Son d'arrêt du rouleau
                     self.play_sound('reel_stop')
@@ -1548,16 +1565,19 @@ class TrombinoscopeApp:
                 # Redessiner le rouleau
                 self.draw_reel(i)
             else:
-                # Ce rouleau est arrêté, s'assurer qu'il est exactement sur la position
-                self.casino_state['reel_offsets'][i] = target_offset
+                # Ce rouleau est arrêté, s'assurer qu'il est exactement sur la position entière
+                self.casino_state['reel_offsets'][i] = float(int(target_offset))
                 self.draw_reel(i)
         
         # Continuer l'animation ou vérifier le résultat
         if not all_stopped:
             self.casino_state['popup'].after(16, self.animate_vertical_reels)  # ~60 FPS
         else:
-            # Tous les rouleaux sont arrêtés
-            self.casino_state['popup'].after(200, self.check_casino_result)
+            # Tous les rouleaux sont arrêtés - redessiner une dernière fois pour s'assurer de l'alignement
+            for i in range(3):
+                self.casino_state['reel_offsets'][i] = float(int(self.casino_state['reel_target_positions'][i]))
+                self.draw_reel(i)
+            self.casino_state['popup'].after(300, self.check_casino_result)
     
     def check_casino_result(self):
         """Vérifier le résultat et calculer les gains AVEC ANIMATIONS"""
@@ -1698,6 +1718,9 @@ class TrombinoscopeApp:
             
             self.casino_state['credits'] = new_credits
             self.casino_state['payout'] = payout
+            
+            # Sauvegarder les crédits automatiquement après chaque gain
+            self.save_purchased_phrases()
         
         # Mettre à jour le compteur de phrases
         if 'phrases_label' in self.casino_state:
@@ -1716,6 +1739,9 @@ class TrombinoscopeApp:
             )
             old_credits = self.casino_state['credits']
             self.casino_state['credits'] += 50
+            
+            # Sauvegarder le bonus
+            self.save_purchased_phrases()
             
             # Animer le bonus
             self.casino_state['popup'].after(1500, lambda: self.animate_counter(
@@ -3377,6 +3403,15 @@ def main():
     """Point d'entrée de l'application"""
     root = tk.Tk()
     app = TrombinoscopeApp(root)
+    
+    # Sauvegarder les crédits du casino à la fermeture de l'application
+    def on_closing():
+        # Sauvegarder les données du casino avant de fermer
+        if hasattr(app, 'casino_state') and app.casino_state:
+            app.save_purchased_phrases()
+        root.destroy()
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
 
