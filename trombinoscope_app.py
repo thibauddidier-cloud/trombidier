@@ -55,6 +55,9 @@ class TrombinoscopeApp:
         # Charger les phrases achetées depuis le fichier de sauvegarde
         self.purchased_phrases = self.load_purchased_phrases()
         
+        # Charger les phrases personnalisées ajoutées par l'utilisateur
+        self.load_custom_phrases()
+        
         # Couleurs institutionnelles
         self.color_blue = "#000000"  # Noir (bandeau)
         self.color_green = "#059669"  # Vert
@@ -204,7 +207,7 @@ class TrombinoscopeApp:
         return f'#{r:02x}{g:02x}{b:02x}'
         
     def create_menu(self):
-        """Création du menu avec l'onglet À propos et Aide"""
+        """Création du menu avec l'onglet À propos, Aide et Extra"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
         
@@ -217,6 +220,14 @@ class TrombinoscopeApp:
         about_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="À propos", menu=about_menu)
         about_menu.add_command(label="À propos de l'application", command=self.show_about)
+        
+        # Menu Extra (Easter Eggs et fonctionnalités bonus)
+        extra_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Extra", menu=extra_menu)
+        extra_menu.add_command(label="🦆 Tape le Psykokwak", command=self.show_whack_a_psyduck_game)
+        extra_menu.add_command(label="🎰 Le Casino de Lautrec", command=self.show_casino_game)
+        extra_menu.add_separator()
+        extra_menu.add_command(label="📝 Ajouter des phrases", command=self.show_add_phrases_window)
     
     def load_purchased_phrases(self):
         """Charger les phrases achetées et les crédits depuis le fichier de sauvegarde"""
@@ -231,6 +242,22 @@ class TrombinoscopeApp:
             print(f"Erreur chargement sauvegarde: {e}")
         self.saved_credits = 100  # Valeur par défaut
         return set()
+    
+    def load_custom_phrases(self):
+        """Charger les phrases personnalisées depuis le fichier JSON"""
+        try:
+            if os.path.exists(self.SAVE_FILE):
+                with open(self.SAVE_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    custom_phrases = data.get('custom_phrases', [])
+                    # Ajouter les phrases personnalisées si elles n'existent pas déjà
+                    for phrase in custom_phrases:
+                        if phrase not in self.easter_messages:
+                            self.easter_messages.append(phrase)
+                    if custom_phrases:
+                        print(f"📜 {len(custom_phrases)} phrases personnalisées chargées")
+        except Exception as e:
+            print(f"Erreur chargement phrases personnalisées: {e}")
     
     def save_purchased_phrases(self):
         """Sauvegarder les phrases achetées et les crédits dans le fichier"""
@@ -991,7 +1018,7 @@ class TrombinoscopeApp:
         # Label pour le résultat avec style amélioré
         self.casino_state['result_label'] = tk.Label(
             main_frame,
-            text="✨ Appuyez sur SPIN pour jouer ! ✨\n(Coût: 5 crédits)",
+            text="✨ Appuyez sur SPIN pour jouer ! ✨\n(Coût: 10 crédits)",
             font=("Arial", 12, "bold"),
             bg="#0a0a1e",
             fg="#00ff88",
@@ -1444,9 +1471,9 @@ class TrombinoscopeApp:
             return
         
         # Vérifier les crédits
-        if self.casino_state['credits'] < 5:
+        if self.casino_state['credits'] < 10:
             self.casino_state['result_label'].config(
-                text="❌ Pas assez de crédits ! Minimum 5 crédits requis.",
+                text="❌ Pas assez de crédits ! Minimum 10 crédits requis.",
                 fg="#ff4444"
             )
             self.play_sound('error')
@@ -1457,7 +1484,7 @@ class TrombinoscopeApp:
         
         # Déduire les crédits avec animation
         old_credits = self.casino_state['credits']
-        self.casino_state['credits'] -= 5
+        self.casino_state['credits'] -= 10
         self.animate_counter(
             self.casino_state['credit_label'],
             old_credits,
@@ -1607,13 +1634,13 @@ class TrombinoscopeApp:
         elif names[0] == names[1] or names[1] == names[2] or names[0] == names[2]:
             # 2 symboles identiques
             if names[0] == names[1]:
-                payout = symbols[0]['value'] // 5
+                payout = symbols[0]['value'] // 3
                 matching_reels = [0, 1]
             elif names[1] == names[2]:
-                payout = symbols[1]['value'] // 5
+                payout = symbols[1]['value'] // 3
                 matching_reels = [1, 2]
             else:
-                payout = symbols[0]['value'] // 5
+                payout = symbols[0]['value'] // 3
                 matching_reels = [0, 2]
             payout = max(payout, 2)
             result_text = f"👍 Pas mal! 2 identiques!\n+{payout} crédits!"
@@ -2025,6 +2052,407 @@ class TrombinoscopeApp:
             self.casino_state['phrases_label'].config(
                 text=f"📜 Phrases débloquées: {unlocked_count}/{total_phrases} (115 crédits/phrase)"
             )
+    
+    def show_add_phrases_window(self):
+        """Afficher la fenêtre pour ajouter des nouvelles phrases au shop"""
+        # Créer une fenêtre popup
+        add_popup = tk.Toplevel(self.root)
+        add_popup.title("📝 Ajouter des Phrases Secrètes")
+        add_popup.geometry("750x700")
+        add_popup.configure(bg="#1a1a2e")
+        add_popup.resizable(False, False)
+        
+        # Centrer la fenêtre
+        add_popup.transient(self.root)
+        add_popup.grab_set()
+        
+        # Variables pour stocker les nouvelles phrases
+        self.new_phrases_list = []
+        
+        # Frame principale
+        main_frame = tk.Frame(add_popup, bg="#1a1a2e", padx=20, pady=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Titre
+        title_label = tk.Label(
+            main_frame,
+            text="📝 AJOUTER DES PHRASES SECRÈTES 📝",
+            font=("Arial", 16, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700"
+        )
+        title_label.pack(pady=(0, 5))
+        
+        # Sous-titre explicatif
+        subtitle_label = tk.Label(
+            main_frame,
+            text="Ajoutez vos propres phrases secrètes qui seront cryptées et ajoutées au shop !",
+            font=("Arial", 10),
+            bg="#1a1a2e",
+            fg="#a78bfa"
+        )
+        subtitle_label.pack(pady=(0, 15))
+        
+        # Frame pour la saisie de nouvelle phrase
+        input_frame = tk.LabelFrame(
+            main_frame,
+            text="✏️ Nouvelle phrase",
+            font=("Arial", 11, "bold"),
+            bg="#1a1a2e",
+            fg="#00ff88",
+            padx=15,
+            pady=10
+        )
+        input_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Zone de texte pour saisir la phrase
+        self.new_phrase_entry = tk.Text(
+            input_frame,
+            height=3,
+            font=("Arial", 11),
+            bg="#16213e",
+            fg="#ffffff",
+            insertbackground="#ffffff",
+            wrap=tk.WORD,
+            relief=tk.FLAT,
+            padx=10,
+            pady=10
+        )
+        self.new_phrase_entry.pack(fill=tk.X, pady=(5, 10))
+        
+        # Bouton pour ajouter la phrase à la liste temporaire
+        add_btn = tk.Button(
+            input_frame,
+            text="➕ Ajouter à la liste",
+            command=lambda: self.add_phrase_to_temp_list(add_popup),
+            bg="#059669",
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=20,
+            pady=8,
+            activebackground="#047857",
+            borderwidth=0
+        )
+        add_btn.pack()
+        
+        # Hover effect
+        add_btn.bind("<Enter>", lambda e: add_btn.config(bg="#047857"))
+        add_btn.bind("<Leave>", lambda e: add_btn.config(bg="#059669"))
+        
+        # Frame pour afficher les phrases en attente
+        pending_frame = tk.LabelFrame(
+            main_frame,
+            text="📋 Phrases en attente d'ajout au shop",
+            font=("Arial", 11, "bold"),
+            bg="#1a1a2e",
+            fg="#ffd700",
+            padx=15,
+            pady=10
+        )
+        pending_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        # Canvas avec scrollbar pour les phrases en attente
+        canvas_frame = tk.Frame(pending_frame, bg="#1a1a2e")
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+        
+        pending_canvas = tk.Canvas(canvas_frame, bg="#1a1a2e", highlightthickness=0)
+        pending_scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=pending_canvas.yview)
+        self.pending_phrases_frame = tk.Frame(pending_canvas, bg="#1a1a2e")
+        
+        self.pending_phrases_frame.bind(
+            "<Configure>",
+            lambda e: pending_canvas.configure(scrollregion=pending_canvas.bbox("all"))
+        )
+        
+        pending_canvas.create_window((0, 0), window=self.pending_phrases_frame, anchor="nw")
+        pending_canvas.configure(yscrollcommand=pending_scrollbar.set)
+        
+        # Permettre le scroll avec la molette
+        def _on_mousewheel(event):
+            pending_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        pending_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        pending_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        pending_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Label pour phrase vide
+        self.empty_pending_label = tk.Label(
+            self.pending_phrases_frame,
+            text="Aucune phrase en attente.\nSaisissez une phrase ci-dessus et cliquez sur 'Ajouter à la liste'.",
+            font=("Arial", 10, "italic"),
+            bg="#1a1a2e",
+            fg="#6b7280",
+            justify=tk.CENTER
+        )
+        self.empty_pending_label.pack(pady=20)
+        
+        # Compteur de phrases en attente
+        self.pending_count_label = tk.Label(
+            main_frame,
+            text="📊 Phrases en attente : 0",
+            font=("Arial", 10, "bold"),
+            bg="#1a1a2e",
+            fg="#00ff88"
+        )
+        self.pending_count_label.pack(pady=(0, 10))
+        
+        # Frame pour les boutons d'action
+        action_frame = tk.Frame(main_frame, bg="#1a1a2e")
+        action_frame.pack(pady=(5, 0))
+        
+        # Bouton pour ajouter toutes les phrases au shop
+        self.add_to_shop_btn = tk.Button(
+            action_frame,
+            text="🛒 AJOUTER CES PHRASES AU SHOP",
+            command=lambda: self.add_all_phrases_to_shop(add_popup),
+            bg="#8b5cf6",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=25,
+            pady=12,
+            activebackground="#7c3aed",
+            borderwidth=0,
+            state=tk.DISABLED
+        )
+        self.add_to_shop_btn.pack(side=tk.LEFT, padx=10)
+        
+        # Hover effect pour le bouton shop
+        def shop_enter(e):
+            if self.add_to_shop_btn['state'] != tk.DISABLED:
+                self.add_to_shop_btn.config(bg="#7c3aed")
+        def shop_leave(e):
+            if self.add_to_shop_btn['state'] != tk.DISABLED:
+                self.add_to_shop_btn.config(bg="#8b5cf6")
+        self.add_to_shop_btn.bind("<Enter>", shop_enter)
+        self.add_to_shop_btn.bind("<Leave>", shop_leave)
+        
+        # Bouton Fermer
+        close_btn = tk.Button(
+            action_frame,
+            text="✖ Fermer",
+            command=lambda: self.close_add_phrases_window(add_popup),
+            bg="#6b7280",
+            fg="white",
+            font=("Arial", 11, "bold"),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=25,
+            pady=12,
+            activebackground="#4b5563",
+            borderwidth=0
+        )
+        close_btn.pack(side=tk.LEFT, padx=10)
+        
+        # Hover effect
+        close_btn.bind("<Enter>", lambda e: close_btn.config(bg="#4b5563"))
+        close_btn.bind("<Leave>", lambda e: close_btn.config(bg="#6b7280"))
+        
+        # Info sur le nombre total de phrases actuel
+        total_label = tk.Label(
+            main_frame,
+            text=f"📜 Total actuel dans le shop : {len(self.easter_messages)} phrases",
+            font=("Arial", 9),
+            bg="#1a1a2e",
+            fg="#a78bfa"
+        )
+        total_label.pack(pady=(10, 0))
+        self.total_shop_label = total_label
+        
+        # Stocker la référence du canvas pour unbind
+        self.add_phrases_canvas = pending_canvas
+        
+        # Fermer proprement
+        add_popup.protocol("WM_DELETE_WINDOW", lambda: self.close_add_phrases_window(add_popup))
+    
+    def add_phrase_to_temp_list(self, popup):
+        """Ajouter une phrase à la liste temporaire"""
+        phrase_text = self.new_phrase_entry.get("1.0", tk.END).strip()
+        
+        if not phrase_text:
+            messagebox.showwarning(
+                "Phrase vide",
+                "Veuillez saisir une phrase avant de l'ajouter."
+            )
+            return
+        
+        if len(phrase_text) < 10:
+            messagebox.showwarning(
+                "Phrase trop courte",
+                "La phrase doit contenir au moins 10 caractères."
+            )
+            return
+        
+        # Vérifier si la phrase existe déjà
+        if phrase_text in self.easter_messages or phrase_text in self.new_phrases_list:
+            messagebox.showwarning(
+                "Phrase existante",
+                "Cette phrase existe déjà dans le shop ou dans la liste en attente."
+            )
+            return
+        
+        # Ajouter à la liste temporaire
+        self.new_phrases_list.append(phrase_text)
+        
+        # Cacher le label "aucune phrase"
+        self.empty_pending_label.pack_forget()
+        
+        # Créer un widget pour afficher la nouvelle phrase
+        phrase_idx = len(self.new_phrases_list) - 1
+        phrase_frame = tk.Frame(self.pending_phrases_frame, bg="#16213e", padx=10, pady=8)
+        phrase_frame.pack(fill=tk.X, pady=3, padx=5)
+        
+        # Numéro
+        num_label = tk.Label(
+            phrase_frame,
+            text=f"#{phrase_idx + 1}",
+            font=("Arial", 9, "bold"),
+            bg="#16213e",
+            fg="#ffd700",
+            width=4
+        )
+        num_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Texte crypté (preview)
+        crypted_preview = "🔒 " + "•" * min(len(phrase_text) // 2, 30) + "..."
+        phrase_label = tk.Label(
+            phrase_frame,
+            text=crypted_preview,
+            font=("Arial", 9),
+            bg="#16213e",
+            fg="#a78bfa",
+            wraplength=400,
+            justify=tk.LEFT,
+            anchor="w"
+        )
+        phrase_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Bouton supprimer
+        del_btn = tk.Button(
+            phrase_frame,
+            text="🗑️",
+            command=lambda f=phrase_frame, p=phrase_text: self.remove_pending_phrase(f, p),
+            bg="#dc2626",
+            fg="white",
+            font=("Arial", 9),
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=8,
+            pady=2,
+            activebackground="#b91c1c",
+            borderwidth=0
+        )
+        del_btn.pack(side=tk.RIGHT, padx=(10, 0))
+        
+        # Hover effect
+        del_btn.bind("<Enter>", lambda e: del_btn.config(bg="#b91c1c"))
+        del_btn.bind("<Leave>", lambda e: del_btn.config(bg="#dc2626"))
+        
+        # Vider la zone de saisie
+        self.new_phrase_entry.delete("1.0", tk.END)
+        
+        # Mettre à jour le compteur
+        self.update_pending_count()
+        
+        # Activer le bouton d'ajout au shop
+        self.add_to_shop_btn.config(state=tk.NORMAL)
+    
+    def remove_pending_phrase(self, frame, phrase_text):
+        """Supprimer une phrase de la liste en attente"""
+        if phrase_text in self.new_phrases_list:
+            self.new_phrases_list.remove(phrase_text)
+        frame.destroy()
+        
+        # Mettre à jour le compteur
+        self.update_pending_count()
+        
+        # Si plus de phrases, afficher le message vide et désactiver le bouton
+        if not self.new_phrases_list:
+            self.empty_pending_label.pack(pady=20)
+            self.add_to_shop_btn.config(state=tk.DISABLED)
+    
+    def update_pending_count(self):
+        """Mettre à jour le compteur de phrases en attente"""
+        count = len(self.new_phrases_list)
+        self.pending_count_label.config(text=f"📊 Phrases en attente : {count}")
+    
+    def add_all_phrases_to_shop(self, popup):
+        """Ajouter toutes les phrases en attente au shop"""
+        if not self.new_phrases_list:
+            messagebox.showwarning(
+                "Aucune phrase",
+                "Aucune phrase en attente à ajouter."
+            )
+            return
+        
+        # Confirmation
+        count = len(self.new_phrases_list)
+        confirm = messagebox.askyesno(
+            "Confirmer l'ajout",
+            f"Voulez-vous ajouter {count} phrase{'s' if count > 1 else ''} au shop ?\n\n"
+            "Ces phrases seront cryptées et disponibles à l'achat avec des crédits."
+        )
+        
+        if not confirm:
+            return
+        
+        # Ajouter les phrases à easter_messages
+        added_count = 0
+        for phrase in self.new_phrases_list:
+            if phrase not in self.easter_messages:
+                self.easter_messages.append(phrase)
+                added_count += 1
+        
+        # Sauvegarder dans le fichier JSON (pour persistance)
+        self.save_custom_phrases()
+        
+        # Message de succès
+        messagebox.showinfo(
+            "Phrases ajoutées !",
+            f"✅ {added_count} phrase{'s' if added_count > 1 else ''} ajoutée{'s' if added_count > 1 else ''} au shop avec succès !\n\n"
+            f"Total de phrases dans le shop : {len(self.easter_messages)}\n\n"
+            "Les nouvelles phrases sont maintenant cryptées et disponibles à l'achat."
+        )
+        
+        # Vider la liste temporaire et fermer
+        self.new_phrases_list = []
+        self.close_add_phrases_window(popup)
+    
+    def save_custom_phrases(self):
+        """Sauvegarder les phrases personnalisées dans le fichier JSON"""
+        try:
+            # Charger les données existantes
+            data = {}
+            if os.path.exists(self.SAVE_FILE):
+                with open(self.SAVE_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            
+            # Récupérer les crédits actuels
+            credits = getattr(self, 'casino_state', {}).get('credits', self.saved_credits)
+            
+            # Sauvegarder avec les phrases personnalisées
+            data['purchased_phrases'] = list(self.purchased_phrases)
+            data['casino_credits'] = credits
+            data['custom_phrases'] = self.easter_messages[46:]  # Les phrases ajoutées après les originales
+            
+            with open(self.SAVE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            print(f"💾 Phrases personnalisées sauvegardées")
+        except Exception as e:
+            print(f"Erreur sauvegarde phrases personnalisées: {e}")
+    
+    def close_add_phrases_window(self, popup):
+        """Fermer la fenêtre d'ajout de phrases"""
+        try:
+            if hasattr(self, 'add_phrases_canvas'):
+                self.add_phrases_canvas.unbind_all("<MouseWheel>")
+        except:
+            pass
+        popup.destroy()
     
     def show_missing_photos_alert(self, missing_count):
         """Afficher une alerte pour les photos manquantes (21ko)"""
