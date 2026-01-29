@@ -66,7 +66,7 @@ class TrombinoscopeApp:
         
         # Messages Easter Egg
         self.easter_messages = [
-            "La bouffe du self est dégueulasse.",
+            "La bouffe du self ou plutot de la cuisine centrale est dégueulasse. Et le prix va augmenter. 2'80e a 3'25e en 1 an et imaginez les externes qui payent plus de 9e",
             "Le saviez-vous ? Sophian est l'AED ayant passé le plus de temps dans mon bureau, estimant que c'est sa planque.",
             "Spéciale dédicace à Karen qui anime la vie lycéenne !",
 "La légende raconte qu'un certain Quentin Monnier serait directeur de colo ( et pas que ! )",
@@ -74,43 +74,54 @@ class TrombinoscopeApp:
 "Jarod peut remonter le temps grace à sa montre pendentif, seulement pendant son sommeil.",
 "Un certain S est en concurence avec C pour la séduction des enseignants.",
 "Larbi, ancien agent à Lautrec, a voulu se battre avec l'AED TICE et s'est fait virer depuis",
-"Les cookies de la cafet sont délicieux.",
+"Les cookies de la cafet sont délicieux. Ne prenez pas le tacos crousty il est surcoté ",
 "Chose la plus insolite retrouvée dans un casier de prof : Un trognon de pomme et un dentier.",
 "Non Sarah, ce n'est pas à moi de changer la cartouche de ton imprimante.",
 "Les élèves de Mr Tempier semblent avoir le droit de faire un baseball en plein cours.",
 "Regardez le top 10 des élèves sanctionnés sur pronote, c'est surprenant. ",
-"En 2025, 2 AED ont vécu des choses pationnantes dans une salle de cours. Plusieurs fois.",
+"En 2025, 2 AED ont vécu des choses pationnantes dans une salle de cours. Plusieurs fois. En salle 154 !",
 "Mr Maiurano, ancien CPE, avait comme mot de passe pomme de pain ",
-"Cathy Condy a été ma maman spirituelle.",
+"Cathy Condy a été ma maman spirituelle. Pauline Ndoume a pris la relève, et Monique Fernandez est ma maîtresse",
 "Clement est un futur pompier, qui n'éteint pas que le feu des batiments.",
-"Non ECE, je ne te donnerai pas les identifiants admin pour que tu installes Paint.net ",
-"Econocom est vraiment la pire boite.",
-"Jarod, ta bien-pensance est appréciable, ta non-tolérance l'est moins, mais je t'aime.",
+"Non ECE, je ne te donnerai pas les identifiants admin pour que tu installes ton putain de logiciel Paint.net ",
+"Karen a entendu ' Il en a une grosse ' à la place de 'il a des gosses'.",
+"Les talky walky des AED captaient la fréquence du chantier d'a coté et c'etait très drole .",
+"L'un des anciens AED, Samir, qui est resté que quelques semaines, aurait fumé de la marie-jeanne avec des élèves. Il été moniteur de karaté pour les AED aussi",
+"Marc Andral est un énorme enfoiré, qui ne m'a donné aucune aide et adorait me faire passer pour un bouffon.",
+"Règle 1, si Marie Hélène appelle de la part de Sarah, Sarah veut te douiller.",
+"Règle 2, si Sarah appelle pour te demander un service, Sarah veut te douiller.",
+"Jarod, ta bien-pensance est remarquable, ta non-tolérance l'est moins, mais je t'aime. Et non je ne suis pas d'Extreme droite! Vive l'UPR",
 "Maryse fait la gueule toute la matinée ( sauf si Clément est présent ).",
+"Maryse et Clément ne se parlent plus depuis des semaines, je suis sûr que l'un des deux à des sentiments envers l'autre.",
 "Une AED a déjà fait un resto basket au 100 couvert pour la saint valentin !",
 "Une pièce souterraine avec des poupées et des rituels vaudous a existé au lycée",
 "Le tacos aux légumes de la cafet est sous-coté mais il est très bon.",
 "Julien Pharos fait pleuvoir lorsqu'il chante au Boulis.",
-"Chaque année, des dizaines de rats crevés sont découverts dans les faux-plafonds.",
+"J'ai fait un énorme travail personnel pour apprécier ECE, ne supportant pas le ton de sa voix et ses demandes incessantes. Au final c'est une très bonne personne. Travaillez sur vous même c'est important.",
+"Quoi que je dise sur Sophian pour le taquiner, c'est celui en qui j'ai trouvé la plus grande sagesse, neutralité et bienveillance. C'est juste un mec Chill.",
+"Chaque année, des dizaines de rats crevés sont découverts dans les faux-plafonds, spécifiquement au dessus des vies scolaires.",
 "En Octobre 2025, quelqu'un a chié au niveau de la passerelle #cacagate",
 "Des lacrymos ont été entierement vidées dans les WC en 2025",
-"Marc Touya , arrête la clope mon champion.",
-"Des AED qui chopent des profs ? Oui ça s'est déjà fait.",
-"Des AED qui chopent des AED ? Oui, ça s'est déjà fait. Le Chene est dans la Scierie.",
+"50% des demandes des profs se terminent par 'fais le quand tu as le temps, ce n'est pas urgent' mais sont relancées dans la journée.",
+"Cheveux de feu s'est battue avec sa fille dans la cour du lycée en faisant des roulé-boulé dans l'herbe, vue par des AED.",
+"Des AED qui chopent des profs ? Oui ça s'est déjà fait. Des AED qui chopent des AED ? Oui, ça s'est déjà fait. 'Le Chene est dans la Scierie'. En salle 154 ! Le pire c'est que même les profs de ces salles ont été 'fierement' informé par l'une des AED!",
 "Un élève a donné comme devoir PETE MOI LA CHATTE , en se connectant au Pronote d'une prof.",
-"La prof qui s'est fait 'pirater' son Pronote, a admis qu'elle s'était absentée 15mn du cours.",
+"La prof qui s'est fait 'pirater' son Pronote, a finalement admis qu'elle s'était absentée 15mn du cours.",
+"Marc Andral, oui encore, a dit devant tout le monde que j'étais au niveau -1 en informatique, pour au final ne pas savoir résoudre le problème pour lequel je l'avais été appelé.",
 "Julien Pharos est l'enseignant avec le plus de retard au lycée, environ 15 mn par cours.",
 "Pauline , l'agent d'entretien a été ma seconde maman spirituelle, hein St Antoine de Padou !",
-"Certains contacts du téléphone pro ont été renommé avant l'arrivée de Paul.",
-"Mmr Novoa est objectivement l'une des personnes les plus humaines de l'établissement. ",
-"Julien pharos a reçu un tracte de reconquête dans son casier par pure provocation.",
+"Certains contacts du téléphone pro ont été renommé avant l'arrivée de Paul. Mais Paul va surrement renommer certains contacts aussi",
+"Mme Novoa est objectivement l'une des personnes les plus humaines de l'établissement. ",
+"Pour votre santé mentale, ne demandez pas d'explications sur un problème simple à Michel Chaboy",
+"Julien pharos a reçu un tracte d'Eric Zemmour dans son casier par pure provocation.",
 "Marc Andral a été la personne la moins pédagogique de l'établissement, comble d'un prof.",
-"Edouard Romera & Mylene Fournier sont les profs en couple les plus cools !",
-"Le bourrage papier de l'imprimante de Davina était en fait un sachet de beuh coincé.",
-"Brigitte de la Cafet a écrit un livre.",
-"Sirine est l'AED a qui vous ne pouvez confier aucun secret.",
+"Edouard Romera & Mylene Fournier sont les profs en couple les plus cools du lycée !",
+"Le bourrage papier de l'imprimante de Davina était en fait un sachet de beuh coincé. Je savais pas d'où venait cette odeur de merde jusqu'à ce que je comprenne que ça vienne de cet emballage de 'gateau' mdrrr",
+"Brigitte de la Cafet a écrit un livre. J'aurai pu lire son livre plus rapidement que tout le temps passé accumulé à la dépanner pour ses soucis persos #humour",
+"Mr Audouard récupère des cartons du lycée pour son garage et son poulailler .",
+"Sirine est l'AED a qui vous ne pouvez pas confier aucun secret. J'en ai pas fait les frais mais j'aurai pu lancer une rumeur et voir combien de temps elle met à faire le tour des AED avant de me revenir",
 "Sophian investi dans des paris sportifs grâce à ChatGPT, mais reste en négatif.",
-            "Marc Andral est un CONNARD :-) . Pardon, un GROS CONNARD !"
+"Je me suis retenu de leak le 06 de Marc Andral sur Leboncoin."
         ]
         self.easter_message_index = 0  # Index pour messages séquentiels
         
@@ -1117,7 +1128,7 @@ class TrombinoscopeApp:
         
         phrases_label = tk.Label(
             main_frame,
-            text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (115 crédits/phrase)",
+            text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (35 crédits/phrase)",
             font=("Arial", 10),
             bg="#0a0a1e",
             fg="#a78bfa"
@@ -1754,7 +1765,7 @@ class TrombinoscopeApp:
             total_phrases = len(self.easter_messages)
             unlocked_phrases = len(self.purchased_phrases)
             self.casino_state['phrases_label'].config(
-                text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (115 crédits/phrase)"
+                text=f"📜 Phrases débloquées: {unlocked_phrases}/{total_phrases} (35 crédits/phrase)"
             )
         
         # Vérifier si le joueur est ruiné
@@ -1848,7 +1859,7 @@ class TrombinoscopeApp:
         
         subtitle_label = tk.Label(
             main_frame,
-            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 115 crédits par phrase",
+            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 35 crédits par phrase",
             font=("Arial", 10),
             bg="#1a1a2e",
             fg="#a78bfa"
@@ -1931,7 +1942,7 @@ class TrombinoscopeApp:
             if not is_purchased:
                 buy_btn = tk.Button(
                     phrase_frame,
-                    text="🔓 115💰",
+                    text="🔓 35💰",
                     command=lambda i=idx: self.purchase_phrase(i),
                     bg="#059669",
                     fg="white",
@@ -1991,7 +2002,7 @@ class TrombinoscopeApp:
     
     def purchase_phrase(self, phrase_idx):
         """Acheter une phrase avec les crédits du casino"""
-        cost = 115
+        cost = 35
         
         # Vérifier les crédits
         if self.casino_state['credits'] < cost:
@@ -2044,13 +2055,13 @@ class TrombinoscopeApp:
         total_phrases = len(self.easter_messages)
         unlocked_count = len(self.purchased_phrases)
         self.inventory_state['subtitle_label'].config(
-            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 115 crédits par phrase"
+            text=f"Débloquées: {unlocked_count}/{total_phrases} | Coût: 35 crédits par phrase"
         )
         
         # Mettre à jour le label dans le casino
         if 'phrases_label' in self.casino_state:
             self.casino_state['phrases_label'].config(
-                text=f"📜 Phrases débloquées: {unlocked_count}/{total_phrases} (115 crédits/phrase)"
+                text=f"📜 Phrases débloquées: {unlocked_count}/{total_phrases} (35 crédits/phrase)"
             )
     
     def show_add_phrases_window(self):
